@@ -29,6 +29,9 @@ void setup_uncommissioned(void)
     sprintf(ssid, "heater-%08X", ESP.getChipId());
     char password[16];
     sprintf(password, "%08X", ESP.getChipId());
+    IPAddress apIP(192, 168, 1, 1);
+    WiFi.mode(WIFI_AP);
+    WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
     WiFi.softAP(ssid, password);
 
     /* Spawn web server */
