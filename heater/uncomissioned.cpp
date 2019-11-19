@@ -2,11 +2,15 @@
 #include "uncommissioned.h"
 #include "Arduino.h"
 #include "Ticker.h"
+#include "webpages.h"
 #include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
 #define SLOW_BLINK_PERIOD     (500) /* In ms */
 
 static Ticker leds_ticker;
+static AsyncWebServer server(80);
 
 static void toggle_leds()
 {
@@ -26,6 +30,13 @@ void setup_uncommissioned(void)
     char password[16];
     sprintf(password, "%08X", ESP.getChipId());
     WiFi.softAP(ssid, password);
+
+    /* Spawn web server */
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+            request->send_P(200, "text/html", uncommissioned_index_html);
+        }
+    );
+    server.begin();
 }
 
 void loop_uncommissioned(void)
