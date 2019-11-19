@@ -3,14 +3,18 @@
 #include "Arduino.h"
 #include "Ticker.h"
 #include "webpages.h"
+#include <DNSServer.h>
 #include <ESP8266WiFi.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
 #define SLOW_BLINK_PERIOD     (500) /* In ms */
 
+#define DNS_PORT              (53)
+
 static Ticker leds_ticker;
 static AsyncWebServer server(80);
+static DNSServer dns_server;
 
 static void toggle_leds()
 {
@@ -34,6 +38,9 @@ void setup_uncommissioned(void)
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
     WiFi.softAP(ssid, password);
 
+    /* Start DNS server */
+    dns_server.start(DNS_PORT, "www.heater.local", apIP);
+
     /* Spawn web server */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
             request->send_P(200, "text/html", uncommissioned_index_html);
@@ -44,5 +51,5 @@ void setup_uncommissioned(void)
 
 void loop_uncommissioned(void)
 {
-    /* @todo Not yet implemented */
+    dns_server.processNextRequest();
 }
