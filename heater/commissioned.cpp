@@ -1,6 +1,10 @@
 #include "board.h"
 #include "commissioned.h"
+#include "settings.h"
 #include "Arduino.h"
+#include <ESP8266WiFi.h>
+
+#define WIFI_JOIN_TIMEOUT     (15)    /* Timeout in seconds */
 
 static void button_isr()
 {
@@ -17,6 +21,23 @@ void setup_commissioned()
 
     pinMode(BUTTON_PIN, INPUT);
     attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_isr, CHANGE);
+
+    char ssid[64];
+    settings_get_ssid(ssid);
+    char password[64];
+    settings_get_password(password);
+    WiFi.begin(ssid, password);
+    /* Wait for the WiFi to connect */
+    int timeout = 0;
+    while (WiFi.status() != WL_CONNECTED && timeout < WIFI_JOIN_TIMEOUT) {
+        delay(1000);
+        timeout++;
+    }
+
+    if (WiFi.status() != WL_CONNECTED && timeout == WIFI_JOIN_TIMEOUT) {
+        /* @todo Display error code on LED 2 */
+        while (1);
+    }
 }
 
 void loop_commissioned()
