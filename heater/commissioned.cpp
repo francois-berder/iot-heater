@@ -4,6 +4,7 @@
 #include "webpages.h"
 #include "Arduino.h"
 #include <ESP8266WiFi.h>
+#include <ESP8266mDNS.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
@@ -48,6 +49,11 @@ void setup_commissioned()
         /* @todo Display error code on LED 2 */
         while (1);
     }
+
+    /* Start mDNS server */
+    char name[64];
+    settings_get_name(name);
+    MDNS.begin(name);
 
     /* Spawn web server */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
