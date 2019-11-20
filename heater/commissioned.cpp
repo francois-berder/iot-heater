@@ -22,6 +22,11 @@ void setup_commissioned()
     pinMode(BUTTON_PIN, INPUT);
     attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_isr, CHANGE);
 
+    pinMode(LEFT_OUTPUT_PIN, OUTPUT);
+    digitalWrite(LEFT_OUTPUT_PIN, 0);
+    pinMode(RIGHT_OUTPUT_PIN, OUTPUT);
+    digitalWrite(RIGHT_OUTPUT_PIN, 0);
+
     char ssid[64];
     settings_get_ssid(ssid);
     char password[64];
