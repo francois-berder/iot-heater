@@ -1,10 +1,15 @@
 #include "board.h"
 #include "commissioned.h"
 #include "settings.h"
+#include "webpages.h"
 #include "Arduino.h"
 #include <ESP8266WiFi.h>
+#include <ESPAsyncTCP.h>
+#include <ESPAsyncWebServer.h>
 
 #define WIFI_JOIN_TIMEOUT     (15)    /* Timeout in seconds */
+
+static AsyncWebServer server(80);
 
 static void button_isr()
 {
@@ -43,6 +48,13 @@ void setup_commissioned()
         /* @todo Display error code on LED 2 */
         while (1);
     }
+
+    /* Spawn web server */
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+            request->send_P(200, "text/html", commissioned_index_html);
+        }
+    );
+    server.begin();
 }
 
 void loop_commissioned()

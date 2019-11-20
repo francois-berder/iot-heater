@@ -3,5 +3,6 @@
 
 extern const char uncommissioned_index_html[];
 
-#endif
+extern const char commissioned_index_html[];
 
+#endif
