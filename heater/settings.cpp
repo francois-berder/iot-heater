@@ -36,6 +36,16 @@ bool settings_load(void)
     return valid;
 }
 
+void settings_erase(void)
+{
+    /* Erase EEPROM */
+    for (int i = 0; i < EEPROM_LEN; ++i)
+        EEPROM.write(i, 0xFF);
+    EEPROM.commit();
+
+    memset(&settings, 0, sizeof(settings));
+}
+
 void settings_create(char *name, char *ssid, char *password)
 {
     /* Erase EEPROM */

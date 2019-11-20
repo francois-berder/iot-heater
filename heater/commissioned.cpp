@@ -8,14 +8,12 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
+#define BUTTON_PRESS_TIMEOUT  (10000)    /* Timeout in milliseconds */
 #define WIFI_JOIN_TIMEOUT     (15)    /* Timeout in seconds */
 
 static AsyncWebServer server(80);
-
-static void button_isr()
-{
-    /* @todo Not yet implemented */
-}
+static bool button_pressed;
+static unsigned long button_pressed_start;
 
 void setup_commissioned()
 {
@@ -26,7 +24,6 @@ void setup_commissioned()
     digitalWrite(LED2_PIN, 0);
 
     pinMode(BUTTON_PIN, INPUT);
-    attachInterrupt(digitalPinToInterrupt(BUTTON_PIN), button_isr, CHANGE);
 
     pinMode(LEFT_OUTPUT_PIN, OUTPUT);
     digitalWrite(LEFT_OUTPUT_PIN, 0);
@@ -65,5 +62,18 @@ void setup_commissioned()
 
 void loop_commissioned()
 {
-    /* @todo Not yet implemented */
+    /* Clear configuration if button is pressed for a while */
+    if (digitalRead(BUTTON_PIN) == 0) {
+        button_pressed = true;
+        button_pressed_start = millis();
+    } else {
+        button_pressed = false;
+    }
+
+    if (button_pressed) {
+        if (millis() - button_pressed_start >= BUTTON_PRESS_TIMEOUT) {
+            settings_erase();
+            ESP.restart();
+        }
+    }
 }

@@ -22,6 +22,11 @@ struct __attribute__((packed)) settings_t {
 bool settings_load(void);
 
 /**
+ * @brief Erase settings
+ */
+void settings_erase(void);
+
+/**
  * @brief Create and save it to EEPROM
  *
  * @param[in] name
