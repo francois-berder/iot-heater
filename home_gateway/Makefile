@@ -17,7 +17,8 @@ CFLAGS += -ggdb -g3 -gz
 LDFLAGS += -ggdb -g3 -gz
 endif
 
-SRCS := src/device_server.cpp src/logger.cpp src/main.cpp
+SRCS := src/device.cpp src/device_feature.cpp src/device_manager.cpp src/device_server.cpp \
+		src/heater_feature.cpp src/logger.cpp src/main.cpp
 OBJS := $(SRCS:%.cpp=$(OBJDIR)/%.o)
 DEPS := $(SRCS:%.cpp=$(DEPDIR)/%.d)
 
