@@ -17,7 +17,7 @@ CFLAGS += -ggdb -g3 -gz
 LDFLAGS += -ggdb -g3 -gz
 endif
 
-SRCS := src/main.cpp
+SRCS := src/logger.cpp src/main.cpp
 OBJS := $(SRCS:%.cpp=$(OBJDIR)/%.o)
 DEPS := $(SRCS:%.cpp=$(DEPDIR)/%.d)
 
