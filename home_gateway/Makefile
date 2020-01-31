@@ -17,9 +17,11 @@ CFLAGS += -ggdb -g3 -gz
 LDFLAGS += -ggdb -g3 -gz
 endif
 
-SRCS := src/logger.cpp src/main.cpp
+SRCS := src/device_server.cpp src/logger.cpp src/main.cpp
 OBJS := $(SRCS:%.cpp=$(OBJDIR)/%.o)
 DEPS := $(SRCS:%.cpp=$(DEPDIR)/%.d)
+
+LDFLAGS += -lpthread
 
 TARGET := homegateway-$(BUILDTYPE)
 
