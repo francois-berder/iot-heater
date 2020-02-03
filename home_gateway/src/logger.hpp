@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <mutex>
+#include <string>
 
 class Logger {
 public:
@@ -18,7 +19,7 @@ public:
     static void warn(const std::string &s);
     static void info(const std::string &s);
 
-    void startLogging();
+    void startLogging(const std::string &dir);
     void stopLogging();
 
 private:
@@ -26,6 +27,8 @@ private:
     ~Logger() = default;
     void log(const std::string &prefix, const std::string &s);
 
+    std::string m_dir;
+    unsigned long long m_index;
     std::ofstream m_file;
     std::mutex m_mutex;
 };
