@@ -24,3 +24,13 @@ void Device::addFeature(std::shared_ptr<DeviceFeature> f)
 {
     m_features.push_back(f);
 }
+
+bool Device::isRegistered() const
+{
+    return !m_id.empty();
+}
+
+std::string Device::serialize() const
+{
+    return m_id + "," + m_name;
+}

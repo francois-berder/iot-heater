@@ -18,6 +18,10 @@ public:
     std::string getID() const;
     std::string getName() const;
 
+    bool isRegistered() const;
+
+    std::string serialize() const;
+
 private:
     std::string m_id;
     std::string m_name;

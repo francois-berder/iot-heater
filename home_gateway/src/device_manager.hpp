@@ -18,6 +18,7 @@ public:
 
 private:
     void parseMessage(int fd, uint8_t type, uint8_t *data, int len);
+    void saveToFile();
 
     std::map<unsigned int, std::shared_ptr<Device>> m_devices;
     std::mutex m_mutex;

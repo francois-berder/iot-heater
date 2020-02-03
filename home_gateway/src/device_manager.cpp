@@ -1,6 +1,7 @@
 #include "device_manager.hpp"
 #include "heater_feature.hpp"
 #include "logger.hpp"
+#include <fstream>
 #include <memory>
 #include <mutex>
 #include <poll.h>
@@ -107,10 +108,36 @@ void DeviceManager::parseMessage(int fd, uint8_t type, uint8_t *data, int len)
         /* For now, we assume we only deal with simple heater */
         if (data[52] == DeviceFeatureID::HEATER) {
             m_devices[fd]->addFeature(std::shared_ptr<DeviceFeature>(new HeaterFeature));
+            saveToFile();
         } else {
             std::stringstream ss;
             ss << "Ignored invalid feature " << data[52];
             Logger::warn(ss.str());
         }
     }
+}
+
+void DeviceManager::saveToFile()
+{
+    std::ofstream file;
+
+    file.open("devices.csv", std::fstream::out | std::fstream::trunc);
+    if (!file) {
+        Logger::err("Could not save device info to devices.csv");
+        return;
+    }
+
+    std::string content;
+    {
+        std::lock_guard<std::mutex> guard(m_mutex);
+
+        for (auto& d : m_devices) {
+            if (!d.second->isRegistered())
+                continue;
+            content += d.second->serialize();
+            content += '\n';
+        }
+    }
+
+    file << content;
 }
