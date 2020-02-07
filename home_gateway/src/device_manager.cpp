@@ -82,6 +82,16 @@ void DeviceManager::handleNewDevice(int fd)
     m_devices[fd] = std::shared_ptr<Device>(new Device);
 }
 
+/*
+ * Beware this function is called from sms_server context !
+ */
+void DeviceManager::handleSMSCommand(const std::string &from, const std::string &content)
+{
+    (void)from;
+    (void)content;
+    /* @todo Not yet implemented */
+}
+
 void DeviceManager::parseMessage(int fd, uint8_t type, uint8_t *data, int len)
 {
     if (type == MessageType::DEVICE_REGISTER) {

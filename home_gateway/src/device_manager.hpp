@@ -15,6 +15,7 @@ public:
     void process();
 
     void handleNewDevice(int fd);
+    void handleSMSCommand(const std::string &from, const std::string &content);
 
 private:
     void parseMessage(int fd, uint8_t type, uint8_t *data, int len);
