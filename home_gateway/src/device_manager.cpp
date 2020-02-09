@@ -18,7 +18,7 @@ enum DeviceFeatureID {
 
 DeviceManager::~DeviceManager()
 {
-    std::lock_guard<std::mutex> guard(m_mutex);
+    std::lock_guard<std::mutex> guard(m_devices_mutex);
 
     /* Close all file descriptors */
     for (auto& d : m_devices)
@@ -31,7 +31,7 @@ void DeviceManager::process()
     size_t nfds;
 
     {
-        std::lock_guard<std::mutex> guard(m_mutex);
+        std::lock_guard<std::mutex> guard(m_devices_mutex);
 
         nfds = m_devices.size();
         fds = new pollfd[nfds];
@@ -77,7 +77,7 @@ void DeviceManager::process()
  */
 void DeviceManager::handleNewDevice(int fd)
 {
-    std::lock_guard<std::mutex> guard(m_mutex);
+    std::lock_guard<std::mutex> guard(m_devices_mutex);
 
     m_devices[fd] = std::shared_ptr<Device>(new Device);
 }
@@ -139,7 +139,7 @@ void DeviceManager::saveToFile()
 
     std::string content;
     {
-        std::lock_guard<std::mutex> guard(m_mutex);
+        std::lock_guard<std::mutex> guard(m_devices_mutex);
 
         for (auto& d : m_devices) {
             if (!d.second->isRegistered())
