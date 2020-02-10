@@ -26,6 +26,8 @@ public:
     void sendDebugSMS(const std::string& to, const std::string &content);
     void sendSMS(const std::string& to, const std::string &content);
 
+    void setVerboseLevel(enum SMSServerVerboseLevel verboseLevel);
+
 private:
 
     SMSSender();

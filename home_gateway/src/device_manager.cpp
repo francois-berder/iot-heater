@@ -144,6 +144,12 @@ void DeviceManager::parseCommands()
 
         if (content == "PING")
             SMSSender::instance().sendSMS(from, "PONG");
+        else if (content == "DEBUG")
+            SMSSender::instance().setVerboseLevel(SMS_SENDER_DEBUG);
+        else if (content == "VERBOSE")
+            SMSSender::instance().setVerboseLevel(SMS_SENDER_VERBOSE);
+        else if (content == "QUIET")
+            SMSSender::instance().setVerboseLevel(SMS_SENDER_QUIET);
     }
 }
 
