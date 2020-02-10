@@ -3,6 +3,7 @@
 #include "logger.hpp"
 #include "sms_sender.hpp"
 #include <fstream>
+#include <list>
 #include <memory>
 #include <mutex>
 #include <poll.h>
@@ -160,6 +161,8 @@ void DeviceManager::parseCommands()
             SMSSender::instance().setVerboseLevel(SMS_SENDER_QUIET);
         else if (content == "VERSION")
             sendVersion(from);
+        else if (content == "LIST" || content == "ENUMERATE")
+            sendDeviceList(from);
     }
 }
 
@@ -193,6 +196,35 @@ void DeviceManager::sendVersion(const std::string &to)
     std::stringstream content;
 
     content << "homegateway-" << GIT_HASH << '.' << BUILD_TIME;
+
+    SMSSender::instance().sendSMS(to, content.str());
+}
+
+void DeviceManager::sendDeviceList(const std::string &to)
+{
+    std::stringstream content;
+
+    {
+        std::lock_guard<std::mutex> guard(m_devices_mutex);
+        unsigned int device_count = 0;
+        std::list<std::string> device_names;
+
+        for (auto &e : m_devices) {
+            auto &d = e.second;
+            if (d->isRegistered()) {
+                device_count++;
+                device_names.push_back(d->getName());
+            }
+        }
+
+        if (device_count) {
+            content << device_count << " devices registered\n";
+            for (auto &n : device_names)
+                content << n << '\n';
+        } else {
+            content << "No device registered\n";
+        }
+    }
 
     SMSSender::instance().sendSMS(to, content.str());
 }

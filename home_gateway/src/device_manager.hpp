@@ -24,6 +24,7 @@ private:
     void parseCommands();
     void saveToFile();
     void sendVersion(const std::string &to);
+    void sendDeviceList(const std::string &to);
 
     std::map<unsigned int, std::shared_ptr<Device>> m_devices;
     std::mutex m_devices_mutex;
