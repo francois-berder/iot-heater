@@ -26,6 +26,11 @@ LDFLAGS += -lpthread
 
 TARGET := homegateway-$(BUILDTYPE)
 
+# Build information
+GIT_HASH=$(shell git rev-parse HEAD | head -c 12)$(shell git diff --quiet || echo '-dirty')
+BUILD_TIME=$(shell date +%F-%T)
+CFLAGS += -DGIT_HASH=\"$(GIT_HASH)\" -DBUILD_TIME=\"$(BUILD_TIME)\"
+
 .PHONY: all
 all: $(BINDIR)/$(TARGET)
 
