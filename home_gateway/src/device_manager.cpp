@@ -9,6 +9,14 @@
 #include <sstream>
 #include <unistd.h>
 
+#ifndef GIT_HASH
+#define GIT_HASH        "development"
+#endif
+
+#ifndef BUILD_TIME
+#define BUILD_TIME      "unknown-time"
+#endif
+
 enum MessageType {
     DEVICE_REGISTER,
 };
@@ -150,6 +158,8 @@ void DeviceManager::parseCommands()
             SMSSender::instance().setVerboseLevel(SMS_SENDER_VERBOSE);
         else if (content == "QUIET")
             SMSSender::instance().setVerboseLevel(SMS_SENDER_QUIET);
+        else if (content == "VERSION")
+            sendVersion(from);
     }
 }
 
@@ -176,4 +186,13 @@ void DeviceManager::saveToFile()
     }
 
     file << content;
+}
+
+void DeviceManager::sendVersion(const std::string &to)
+{
+    std::stringstream content;
+
+    content << "homegateway-" << GIT_HASH << '.' << BUILD_TIME;
+
+    SMSSender::instance().sendSMS(to, content.str());
 }
