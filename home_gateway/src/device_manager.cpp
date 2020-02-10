@@ -1,6 +1,7 @@
 #include "device_manager.hpp"
 #include "heater_feature.hpp"
 #include "logger.hpp"
+#include "sms_sender.hpp"
 #include <fstream>
 #include <memory>
 #include <mutex>
@@ -49,7 +50,11 @@ void DeviceManager::process()
         ss << "Failed to poll in device_server error: " << ret;
         Logger::err(ss.str());
         return;
-    } else if (ret == 0) {
+    }
+
+    parseCommands();
+
+    if (ret == 0) {
         return;
     }
 
@@ -87,9 +92,8 @@ void DeviceManager::handleNewDevice(int fd)
  */
 void DeviceManager::handleSMSCommand(const std::string &from, const std::string &content)
 {
-    (void)from;
-    (void)content;
-    /* @todo Not yet implemented */
+    std::lock_guard<std::mutex> guard(m_commands_mutex);
+    m_commands.emplace(from, content);
 }
 
 void DeviceManager::parseMessage(int fd, uint8_t type, uint8_t *data, int len)
@@ -124,6 +128,22 @@ void DeviceManager::parseMessage(int fd, uint8_t type, uint8_t *data, int len)
             ss << "Ignored invalid feature " << data[52];
             Logger::warn(ss.str());
         }
+    }
+}
+
+void DeviceManager::parseCommands()
+{
+    std::lock_guard<std::mutex> guard(m_commands_mutex);
+
+    while (!m_commands.empty()) {
+        std::string from;
+        std::string content;
+
+        std::tie(from, content) = m_commands.front();
+        m_commands.pop();
+
+        if (content == "PING")
+            SMSSender::instance().sendSMS(from, "PONG");
     }
 }
 
