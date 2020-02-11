@@ -1,5 +1,5 @@
-#ifndef DEVICE_MANAGER_HPP
-#define DEVICE_MANAGER_HPP
+#ifndef HOME_GATEWAY_HPP
+#define HOME_GATEWAY_HPP
 
 #include "device.hpp"
 #include <cstdint>
@@ -9,10 +9,10 @@
 #include <queue>
 #include <string>
 
-class DeviceManager {
+class HomeGateway {
 public:
-    DeviceManager() = default;
-    ~DeviceManager();
+    HomeGateway() = default;
+    ~HomeGateway();
 
     void process();
 

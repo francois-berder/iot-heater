@@ -1,5 +1,5 @@
-#include "device_manager.hpp"
 #include "heater_feature.hpp"
+#include "home_gateway.hpp"
 #include "logger.hpp"
 #include "sms_sender.hpp"
 #include <fstream>
@@ -26,7 +26,7 @@ enum DeviceFeatureID {
     HEATER,
 };
 
-DeviceManager::~DeviceManager()
+HomeGateway::~HomeGateway()
 {
     std::lock_guard<std::mutex> guard(m_devices_mutex);
 
@@ -35,7 +35,7 @@ DeviceManager::~DeviceManager()
         close(d.first);
 }
 
-void DeviceManager::process()
+void HomeGateway::process()
 {
     struct pollfd *fds;
     size_t nfds;
@@ -89,7 +89,7 @@ void DeviceManager::process()
  * Beware this function is called from device_server context !
  * That is why we need a mutex around the use of m_devices.
  */
-void DeviceManager::handleNewDevice(int fd)
+void HomeGateway::handleNewDevice(int fd)
 {
     std::lock_guard<std::mutex> guard(m_devices_mutex);
 
@@ -99,13 +99,13 @@ void DeviceManager::handleNewDevice(int fd)
 /*
  * Beware this function is called from sms_server context !
  */
-void DeviceManager::handleSMSCommand(const std::string &from, const std::string &content)
+void HomeGateway::handleSMSCommand(const std::string &from, const std::string &content)
 {
     std::lock_guard<std::mutex> guard(m_commands_mutex);
     m_commands.emplace(from, content);
 }
 
-void DeviceManager::parseMessage(int fd, uint8_t type, uint8_t *data, int len)
+void HomeGateway::parseMessage(int fd, uint8_t type, uint8_t *data, int len)
 {
     if (type == MessageType::DEVICE_REGISTER) {
         /*
@@ -140,7 +140,7 @@ void DeviceManager::parseMessage(int fd, uint8_t type, uint8_t *data, int len)
     }
 }
 
-void DeviceManager::parseCommands()
+void HomeGateway::parseCommands()
 {
     std::lock_guard<std::mutex> guard(m_commands_mutex);
 
@@ -166,7 +166,7 @@ void DeviceManager::parseCommands()
     }
 }
 
-void DeviceManager::saveToFile()
+void HomeGateway::saveToFile()
 {
     std::ofstream file;
 
@@ -191,7 +191,7 @@ void DeviceManager::saveToFile()
     file << content;
 }
 
-void DeviceManager::sendVersion(const std::string &to)
+void HomeGateway::sendVersion(const std::string &to)
 {
     std::stringstream content;
 
@@ -200,7 +200,7 @@ void DeviceManager::sendVersion(const std::string &to)
     SMSSender::instance().sendSMS(to, content.str());
 }
 
-void DeviceManager::sendDeviceList(const std::string &to)
+void HomeGateway::sendDeviceList(const std::string &to)
 {
     std::stringstream content;
 
