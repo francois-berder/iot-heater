@@ -8,6 +8,7 @@
 #include <mutex>
 #include <poll.h>
 #include <sstream>
+#include <string.h>
 #include <unistd.h>
 
 #ifndef GIT_HASH
@@ -78,10 +79,9 @@ void HomeGateway::process()
             ss << "Failed to read in device_server error: " << ret;
             Logger::err(ss.str());
             continue;
+        } else if (ret > 0) {
+            parseMessage(fds[i].fd, buffer, ret);
         }
-
-        if (ret > 0)
-            parseMessage(fds[i].fd, buffer[0], &buffer[1], ret - 1);
     }
 }
 
@@ -105,38 +105,82 @@ void HomeGateway::handleSMSCommand(const std::string &from, const std::string &c
     m_commands.emplace(from, content);
 }
 
-void HomeGateway::parseMessage(int fd, uint8_t type, uint8_t *data, int len)
+void HomeGateway::parseMessage(int fd, uint8_t *data, int len)
 {
+    DeviceUID uid;
+    uint16_t type;
+
+    if ((unsigned int)len < uid.size() + sizeof(type)) {
+        std::stringstream ss;
+        ss << "Message too short";
+        Logger::warn(ss.str());
+        return;
+    }
+
+    memcpy(uid.data(), data, uid.size());
+    memcpy(&type, &data[6], sizeof(type));
+    len -= sizeof(uid) + sizeof(type);
+    data += sizeof(uid) + sizeof(type);
+
     if (type == MessageType::DEVICE_REGISTER) {
-        /*
-         * DEVICE_REGISTER layout:
-         *
-         * ID: 20 characters
-         * name: 32 characters
-         * feature list: 12 bytes
-         */
-        if (len != 64) {
+        uint8_t feature_count;
+        /* name: 32 bytes, feature_count = 1, feature params */
+        if (len < 33) {
             std::stringstream ss;
             ss << "Received malformed DEVICE_REGISTER len=" << len;
             Logger::warn(ss.str());
             return;
         }
 
-        std::string id(reinterpret_cast<char*>(data), 20);
-        std::string name(reinterpret_cast<char*>(&data[20]), 32);
-        m_devices[fd]->setID(id);
+        char name[33];
+        memcpy(name, data, 32);
+        name[32] = '\0';
+        data += 32;
+        len -= 32;
+
+        /* Let's check if another device has this name */
+        for (auto &d: m_devices) {
+            auto dev = d.second;
+            if (dev->getName() == std::string(name) && d.first != fd) {
+                Logger::warn("");
+            }
+        }
+
+        m_devices[fd]->setUID(uid);
         m_devices[fd]->setName(name);
 
-        /* Parse feature list */
-        /* For now, we assume we only deal with simple heater */
-        if (data[52] == DeviceFeatureID::HEATER) {
-            m_devices[fd]->addFeature(std::shared_ptr<DeviceFeature>(new HeaterFeature));
-            saveToFile();
-        } else {
+        {
             std::stringstream ss;
-            ss << "Ignored invalid feature " << data[52];
-            Logger::warn(ss.str());
+            ss << "Registering " << m_devices[fd]->serialize();
+            Logger::info(ss.str());
         }
+
+        data += 32;
+        len -= 32;
+        feature_count = data[0];
+        data++;
+        len--;
+
+        while (feature_count) {
+            uint8_t feature_id = *data++;
+            feature_count--;
+            len--;
+
+            /* Parse feature list */
+            /* For now, we assume we only deal with simple heater */
+            if (feature_id == DeviceFeatureID::HEATER) {
+                m_devices[fd]->addFeature(std::shared_ptr<DeviceFeature>(new HeaterFeature));
+                saveToFile();
+            } else {
+                std::stringstream ss;
+                ss << "Ignored invalid feature " << data[52];
+                Logger::warn(ss.str());
+            }
+        }
+    } else {
+        std::stringstream ss;
+        ss << "Received unknown message type " << type << " from ";
+        Logger::warn(ss.str());
     }
 }
 

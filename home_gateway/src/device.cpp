@@ -1,8 +1,10 @@
 #include "device.hpp"
+#include <sstream>
 
-void Device::setID(const std::string& id)
+
+void Device::setUID(const DeviceUID& uid)
 {
-    m_id = id;
+    m_uid = uid;
 }
 
 void Device::setName(const std::string &name)
@@ -10,9 +12,9 @@ void Device::setName(const std::string &name)
     m_name = name;
 }
 
-std::string Device::getID() const
+DeviceUID Device::getUID() const
 {
-    return m_id;
+    return m_uid;
 }
 
 std::string Device::getName() const
@@ -27,10 +29,14 @@ void Device::addFeature(std::shared_ptr<DeviceFeature> f)
 
 bool Device::isRegistered() const
 {
-    return !m_id.empty();
+    return !m_name.empty();
 }
 
 std::string Device::serialize() const
 {
-    return m_id + "," + m_name;
+    std::stringstream ss;
+
+    ss << m_uid[0] << ':' << m_uid[1] << ':' << m_uid[2] << ':';
+    ss << m_uid[3] << ':' << m_uid[4] << ':' << m_uid[5] << ',' << m_name;
+    return ss.str();
 }

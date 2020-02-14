@@ -2,20 +2,24 @@
 #define DEVICE_HPP
 
 #include "device_feature.hpp"
+#include <array>
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
+
+typedef std::array<uint8_t, 6> DeviceUID;
 
 class Device {
 public:
     Device() = default;
     ~Device() = default;
 
-    void setID(const std::string& id);
+    void setUID(const DeviceUID& uid);
     void setName(const std::string &name);
     void addFeature(std::shared_ptr<DeviceFeature> f);
 
-    std::string getID() const;
+    DeviceUID getUID() const;
     std::string getName() const;
 
     bool isRegistered() const;
@@ -23,7 +27,7 @@ public:
     std::string serialize() const;
 
 private:
-    std::string m_id;
+    DeviceUID m_uid;
     std::string m_name;
     std::vector<std::shared_ptr<DeviceFeature>> m_features;
 };

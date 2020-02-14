@@ -20,7 +20,7 @@ public:
     void handleSMSCommand(const std::string &from, const std::string &content);
 
 private:
-    void parseMessage(int fd, uint8_t type, uint8_t *data, int len);
+    void parseMessage(int fd, uint8_t *data, int len);
     void parseCommands();
     void saveToFile();
     void sendVersion(const std::string &to);
