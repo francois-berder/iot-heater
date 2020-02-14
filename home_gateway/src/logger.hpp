@@ -18,6 +18,7 @@ public:
     static void err(const std::string &s);
     static void warn(const std::string &s);
     static void info(const std::string &s);
+    static void debug(const std::string &s);
 
     void startLogging(const std::string &dir);
     void stopLogging();

@@ -32,6 +32,11 @@ void Logger::info(const std::string &s)
     Logger::instance().log("INFO", s);
 }
 
+void Logger::debug(const std::string &s)
+{
+    Logger::instance().log("DEBUG", s);
+}
+
 void Logger::startLogging(const std::string &dir)
 {
     m_dir = dir;
