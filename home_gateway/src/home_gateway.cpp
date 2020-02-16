@@ -3,6 +3,7 @@
 #include "logger.hpp"
 #include "sms_sender.hpp"
 #include <fstream>
+#include <iomanip>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -20,7 +21,10 @@
 #endif
 
 enum MessageType {
-    DEVICE_REGISTER,
+    PING,
+    REGISTER,
+    ACK,
+    NAK
 };
 
 enum DeviceFeatureID {
@@ -122,8 +126,7 @@ void HomeGateway::parseMessage(int fd, uint8_t *data, int len)
     len -= sizeof(uid) + sizeof(type);
     data += sizeof(uid) + sizeof(type);
 
-    if (type == MessageType::DEVICE_REGISTER) {
-        uint8_t feature_count;
+    if (type == MessageType::REGISTER) {
         /* name: 32 bytes, feature_count = 1, feature params */
         if (len < 33) {
             std::stringstream ss;
@@ -141,8 +144,18 @@ void HomeGateway::parseMessage(int fd, uint8_t *data, int len)
         /* Let's check if another device has this name */
         for (auto &d: m_devices) {
             auto dev = d.second;
-            if (dev->getName() == std::string(name) && d.first != fd) {
-                Logger::warn("");
+            if (dev->getName() == std::string(name) && d.first != fd && uid != dev->getUID()) {
+                std::stringstream ss;
+                ss << "Device ";
+                DeviceUID uid = dev->getUID();
+                ss << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[0]);
+                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[1]);
+                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[2]);
+                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[3]);
+                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[4]);
+                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[5]);
+                ss <<" already has the same name";
+                Logger::warn(ss.str());
             }
         }
 
@@ -152,16 +165,20 @@ void HomeGateway::parseMessage(int fd, uint8_t *data, int len)
         {
             std::stringstream ss;
             ss << "Registering " << m_devices[fd]->serialize();
+            std::string tmp = ss.str();
             Logger::info(ss.str());
         }
 
-        data += 32;
-        len -= 32;
-        feature_count = data[0];
+        uint8_t feature_count = data[0];
         data++;
         len--;
 
         while (feature_count) {
+            if (len == 0) {
+                Logger::err("Register message unexpectedly short");
+                break;
+            }
+
             uint8_t feature_id = *data++;
             feature_count--;
             len--;

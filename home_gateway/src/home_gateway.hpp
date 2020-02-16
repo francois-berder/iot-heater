@@ -26,7 +26,7 @@ private:
     void sendVersion(const std::string &to);
     void sendDeviceList(const std::string &to);
 
-    std::map<unsigned int, std::shared_ptr<Device>> m_devices;
+    std::map<int, std::shared_ptr<Device>> m_devices;
     std::mutex m_devices_mutex;
     std::queue<std::pair<std::string,std::string>> m_commands;
     std::mutex m_commands_mutex;
