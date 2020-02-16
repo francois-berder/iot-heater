@@ -1,4 +1,5 @@
 #include "device.hpp"
+#include <iomanip>
 #include <sstream>
 
 
@@ -36,7 +37,12 @@ std::string Device::serialize() const
 {
     std::stringstream ss;
 
-    ss << m_uid[0] << ':' << m_uid[1] << ':' << m_uid[2] << ':';
-    ss << m_uid[3] << ':' << m_uid[4] << ':' << m_uid[5] << ',' << m_name;
+    ss << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(m_uid[0]);
+    ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(m_uid[1]);
+    ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(m_uid[2]);
+    ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(m_uid[3]);
+    ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(m_uid[4]);
+    ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(m_uid[5]);
+    ss << ',' << m_name;
     return ss.str();
 }
