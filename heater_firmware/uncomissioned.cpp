@@ -8,6 +8,9 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
+#define BUTTON_PRESS_TIMEOUT  (10000)    /* Timeout in milliseconds */
+
+
 #define SLOW_BLINK_PERIOD     (500) /* In ms */
 
 #define DNS_PORT              (53)
@@ -15,6 +18,9 @@
 static Ticker leds_ticker;
 static AsyncWebServer server(80);
 static DNSServer dns_server;
+
+static bool button_pressed;
+static unsigned long button_pressed_start;
 
 static void toggle_leds()
 {
@@ -24,9 +30,14 @@ static void toggle_leds()
 
 void setup_uncommissioned(void)
 {
+    pinMode(LEFT_OUTPUT_PIN, OUTPUT);
+    pinMode(RIGHT_OUTPUT_PIN, OUTPUT);
+    digitalWrite(LEFT_OUTPUT_PIN, 1);
+    digitalWrite(RIGHT_OUTPUT_PIN, 0);
     pinMode(LED1_PIN, OUTPUT);
     pinMode(LED2_PIN, OUTPUT);
     leds_ticker.attach_ms(SLOW_BLINK_PERIOD, toggle_leds);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
 
     /* Create Wifi AP */
     byte mac[6];
@@ -51,9 +62,24 @@ void setup_uncommissioned(void)
         }
     );
     server.begin();
+
+    Serial.begin(115200);
 }
 
 void loop_uncommissioned(void)
 {
+      /* Clear configuration if button is pressed for a while */
+    if (digitalRead(BUTTON_PIN) == 0) {
+      if (!button_pressed) {
+        button_pressed = true;
+        button_pressed_start = millis();
+      } else if (millis() - button_pressed_start >= BUTTON_PRESS_TIMEOUT) {
+        printf("restart...\n");
+      //  ESP.restart();
+      }
+    } else {
+      button_pressed = false;
+    }
+    
     dns_server.processNextRequest();
 }
