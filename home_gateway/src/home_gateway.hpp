@@ -3,6 +3,7 @@
 
 #include "device.hpp"
 #include <cstdint>
+#include <list>
 #include <map>
 #include <memory>
 #include <mutex>
@@ -22,12 +23,16 @@ public:
 private:
     void parseMessage(int fd, uint8_t *data, int len);
     void parseCommands();
-    void saveToFile();
     void sendVersion(const std::string &to);
     void sendDeviceList(const std::string &to);
+    bool lookup_device(DeviceUID uid);
 
-    std::map<int, std::shared_ptr<Device>> m_devices;
-    std::mutex m_devices_mutex;
+    /* Connections not yet associated with a UID */
+    std::list<DeviceConnection> m_connections;
+    std::mutex m_connections_mutex;
+
+    std::list<Device> m_devices;
+
     std::queue<std::pair<std::string,std::string>> m_commands;
     std::mutex m_commands_mutex;
 };

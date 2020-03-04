@@ -1,9 +1,7 @@
-#include "heater_feature.hpp"
 #include "home_gateway.hpp"
 #include "logger.hpp"
 #include "sms_sender.hpp"
 #include <fstream>
-#include <iomanip>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -21,10 +19,7 @@
 #endif
 
 enum MessageType {
-    PING,
-    REGISTER,
-    ACK,
-    NAK
+    ALIVE,
 };
 
 enum DeviceFeatureID {
@@ -33,11 +28,11 @@ enum DeviceFeatureID {
 
 HomeGateway::~HomeGateway()
 {
-    std::lock_guard<std::mutex> guard(m_devices_mutex);
-
     /* Close all file descriptors */
     for (auto& d : m_devices)
-        close(d.first);
+        close(d.conn.fd);
+    for (auto& conn : m_connections)
+        close(conn.fd);
 }
 
 void HomeGateway::process()
@@ -46,13 +41,19 @@ void HomeGateway::process()
     size_t nfds;
 
     {
-        std::lock_guard<std::mutex> guard(m_devices_mutex);
+        std::lock_guard<std::mutex> guard(m_connections_mutex);
 
-        nfds = m_devices.size();
+
+        nfds = m_devices.size() + m_connections.size();
         fds = new pollfd[nfds];
         size_t i = 0;
         for (auto& d : m_devices) {
-            fds[i].fd = d.first;
+            fds[i].fd = d.conn.fd;
+            fds[i].events = POLLIN;
+            ++i;
+        }
+        for (auto &conn: m_connections) {
+            fds[i].fd = conn.fd;
             fds[i].events = POLLIN;
             ++i;
         }
@@ -95,9 +96,12 @@ void HomeGateway::process()
  */
 void HomeGateway::handleNewDevice(int fd)
 {
-    std::lock_guard<std::mutex> guard(m_devices_mutex);
+    std::lock_guard<std::mutex> guard(m_connections_mutex);
+    DeviceConnection conn;
+    conn.fd = fd;
+    conn.last_seen = std::chrono::steady_clock::now();
 
-    m_devices[fd] = std::shared_ptr<Device>(new Device);
+    m_connections.push_back(conn);
 }
 
 /*
@@ -126,73 +130,65 @@ void HomeGateway::parseMessage(int fd, uint8_t *data, int len)
     len -= sizeof(uid) + sizeof(type);
     data += sizeof(uid) + sizeof(type);
 
-    if (type == MessageType::REGISTER) {
-        /* name: 32 bytes, feature_count = 1, feature params */
-        if (len < 33) {
+    if (type == MessageType::ALIVE) {
+        /* name: 32 bytes */
+        if (len != 32) {
             std::stringstream ss;
             ss << "Received malformed DEVICE_REGISTER len=" << len;
             Logger::warn(ss.str());
             return;
         }
 
-        char name[33];
-        memcpy(name, data, 32);
-        name[32] = '\0';
-        data += 32;
-        len -= 32;
+        std::string name(reinterpret_cast<char*>(data), 32);
 
         /* Let's check if another device has this name */
         for (auto &d: m_devices) {
-            auto dev = d.second;
-            if (dev->getName() == std::string(name) && d.first != fd && uid != dev->getUID()) {
+            if (d.name == name && d.conn.fd != fd && d.uid != uid) {
                 std::stringstream ss;
-                ss << "Device ";
-                DeviceUID uid = dev->getUID();
-                ss << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[0]);
-                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[1]);
-                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[2]);
-                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[3]);
-                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[4]);
-                ss << ':' << std::uppercase << std::setfill('0') << std::setw(2) <<  std::hex << std::to_string(uid[5]);
-                ss <<" already has the same name";
+                ss << "Device " << uid_to_string(d.uid) << " already has the same name";
                 Logger::warn(ss.str());
             }
         }
 
-        m_devices[fd]->setUID(uid);
-        m_devices[fd]->setName(name);
+        /* Do we already know this device ? */
+        if (lookup_device(uid)) {
+            for (auto &d : m_devices) {
+                if (d.uid != uid)
+                    continue;
 
-        {
-            std::stringstream ss;
-            ss << "Registering " << m_devices[fd]->serialize();
-            std::string tmp = ss.str();
-            Logger::info(ss.str());
-        }
-
-        uint8_t feature_count = data[0];
-        data++;
-        len--;
-
-        while (feature_count) {
-            if (len == 0) {
-                Logger::err("Register message unexpectedly short");
+                if (d.name != name) {
+                    std::stringstream ss;
+                    ss << "Device " << uid_to_string(d.uid) << " changes name to \"" << name << '\"';
+                    Logger::info(ss.str());
+                }
+                d.name = name;
+                d.conn.last_seen = std::chrono::steady_clock::now();
                 break;
             }
+        } else {
+            /* Create a new device */
+            Device d;
+            d.conn.fd = fd;
+            d.conn.last_seen = std::chrono::steady_clock::now();
+            d.uid = uid;
+            d.name = name;
+            m_devices.push_back(d);
 
-            uint8_t feature_id = *data++;
-            feature_count--;
-            len--;
+            /* Remove DeviceConnection from list */
+            {
+                std::lock_guard<std::mutex> guard(m_connections_mutex);
 
-            /* Parse feature list */
-            /* For now, we assume we only deal with simple heater */
-            if (feature_id == DeviceFeatureID::HEATER) {
-                m_devices[fd]->addFeature(std::shared_ptr<DeviceFeature>(new HeaterFeature));
-                saveToFile();
-            } else {
-                std::stringstream ss;
-                ss << "Ignored invalid feature " << data[52];
-                Logger::warn(ss.str());
+                for (auto it = m_connections.begin(); it != m_connections.end(); ++it) {
+                    if (it->fd == fd) {
+                        m_connections.erase(it);
+                        break;
+                    }
+                }
             }
+
+            std::stringstream ss;
+            ss << "New device. uid: " << uid_to_string(uid) << ", name: " << name;
+            Logger::info(ss.str());
         }
     } else {
         std::stringstream ss;
@@ -203,8 +199,6 @@ void HomeGateway::parseMessage(int fd, uint8_t *data, int len)
 
 void HomeGateway::parseCommands()
 {
-    std::lock_guard<std::mutex> guard(m_commands_mutex);
-
     while (!m_commands.empty()) {
         std::string from;
         std::string content;
@@ -227,31 +221,6 @@ void HomeGateway::parseCommands()
     }
 }
 
-void HomeGateway::saveToFile()
-{
-    std::ofstream file;
-
-    file.open("devices.csv", std::fstream::out | std::fstream::trunc);
-    if (!file) {
-        Logger::err("Could not save device info to devices.csv");
-        return;
-    }
-
-    std::string content;
-    {
-        std::lock_guard<std::mutex> guard(m_devices_mutex);
-
-        for (auto& d : m_devices) {
-            if (!d.second->isRegistered())
-                continue;
-            content += d.second->serialize();
-            content += '\n';
-        }
-    }
-
-    file << content;
-}
-
 void HomeGateway::sendVersion(const std::string &to)
 {
     std::stringstream content;
@@ -265,27 +234,29 @@ void HomeGateway::sendDeviceList(const std::string &to)
 {
     std::stringstream content;
 
-    {
-        std::lock_guard<std::mutex> guard(m_devices_mutex);
-        unsigned int device_count = 0;
-        std::list<std::string> device_names;
+    unsigned int device_count = 0;
+    std::list<std::string> device_names;
 
-        for (auto &e : m_devices) {
-            auto &d = e.second;
-            if (d->isRegistered()) {
-                device_count++;
-                device_names.push_back(d->getName());
-            }
-        }
+    for (auto &d : m_devices)
+        device_names.push_back(d.name);
 
-        if (device_count) {
-            content << device_count << " devices registered\n";
-            for (auto &n : device_names)
-                content << n << '\n';
-        } else {
-            content << "No device registered\n";
-        }
+    if (device_count) {
+        content << device_count << " devices registered\n";
+        for (auto &n : device_names)
+            content << n << '\n';
+    } else {
+        content << "No device registered\n";
     }
 
     SMSSender::instance().sendSMS(to, content.str());
+}
+
+bool HomeGateway::lookup_device(DeviceUID uid)
+{
+    for (auto &d : m_devices) {
+        if (d.uid == uid)
+            return true;
+    }
+
+    return false;
 }

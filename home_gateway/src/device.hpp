@@ -1,35 +1,23 @@
 #ifndef DEVICE_HPP
 #define DEVICE_HPP
 
-#include "device_feature.hpp"
 #include <array>
+#include <chrono>
 #include <cstdint>
-#include <memory>
 #include <string>
-#include <vector>
+
+struct DeviceConnection {
+    int fd;
+    std::chrono::steady_clock::time_point last_seen;
+};
 
 typedef std::array<uint8_t, 6> DeviceUID;
-
-class Device {
-public:
-    Device() = default;
-    ~Device() = default;
-
-    void setUID(const DeviceUID& uid);
-    void setName(const std::string &name);
-    void addFeature(std::shared_ptr<DeviceFeature> f);
-
-    DeviceUID getUID() const;
-    std::string getName() const;
-
-    bool isRegistered() const;
-
-    std::string serialize() const;
-
-private:
-    DeviceUID m_uid;
-    std::string m_name;
-    std::vector<std::shared_ptr<DeviceFeature>> m_features;
+struct Device {
+    DeviceConnection conn;
+    DeviceUID uid;
+    std::string name;
 };
+
+std::string uid_to_string(DeviceUID uid);
 
 #endif
