@@ -37,57 +37,10 @@ HomeGateway::~HomeGateway()
 
 void HomeGateway::process()
 {
-    struct pollfd *fds;
-    size_t nfds;
-
-    {
-        std::lock_guard<std::mutex> guard(m_connections_mutex);
-
-
-        nfds = m_devices.size() + m_connections.size();
-        fds = new pollfd[nfds];
-        size_t i = 0;
-        for (auto& d : m_devices) {
-            fds[i].fd = d.conn.fd;
-            fds[i].events = POLLIN;
-            ++i;
-        }
-        for (auto &conn: m_connections) {
-            fds[i].fd = conn.fd;
-            fds[i].events = POLLIN;
-            ++i;
-        }
-    }
-
-    int ret = poll(fds, nfds, 100);
-    if (ret < 0) {
-        std::stringstream ss;
-        ss << "Failed to poll in device_server error: " << ret;
-        Logger::err(ss.str());
-        return;
-    }
-
+    handleConnections();
+    handleDevices();
+    handleTimers();
     parseCommands();
-
-    if (ret == 0) {
-        return;
-    }
-
-    for (size_t i = 0; i < nfds; ++i) {
-        if (!(fds[i].revents & POLLIN))
-            continue;
-
-        uint8_t buffer[200];
-        ret = read(fds[i].fd, buffer, sizeof(buffer));
-        if (ret < 0) {
-            std::stringstream ss;
-            ss << "Failed to read in device_server error: " << ret;
-            Logger::err(ss.str());
-            continue;
-        } else if (ret > 0) {
-            parseMessage(fds[i].fd, buffer, ret);
-        }
-    }
 }
 
 /*
@@ -113,31 +66,105 @@ void HomeGateway::handleSMSCommand(const std::string &from, const std::string &c
     m_commands.emplace(from, content);
 }
 
-void HomeGateway::parseMessage(int fd, uint8_t *data, int len)
+void HomeGateway::handleConnections()
+{
+    std::lock_guard<std::mutex> guard(m_connections_mutex);
+
+    if (m_connections.empty())
+        return;
+
+    int nfds = m_connections.size();
+    struct pollfd *fds = new struct pollfd[nfds];
+    {
+        int i = 0;
+        for (auto &conn : m_connections) {
+            fds[i].fd = conn.fd;
+            fds[i].events = POLLIN;
+            ++i;
+        }
+    }
+
+    int ret = poll(fds, nfds, 0);
+    if (ret > 0) {
+        for (int i = 0; i < nfds; ++i) {
+            if (!(fds[i].revents & POLLIN))
+                continue;
+
+            uint8_t data[64];
+            ret = read(fds[i].fd, data, sizeof(data));
+            if (ret != sizeof(data))
+                continue;
+            parseMessage(fds[i].fd, data);
+        }
+    }
+
+    delete[] fds;
+}
+
+void HomeGateway::handleDevices()
+{
+    int nfds = m_devices.size();
+    struct pollfd *fds = new struct pollfd[nfds];
+    {
+        int i = 0;
+        for (auto &d : m_devices) {
+            fds[i].fd = d.conn.fd;
+            fds[i].events = POLLIN;
+            ++i;
+        }
+    }
+
+    int ret = poll(fds, nfds, 0);
+    if (ret > 0) {
+        for (int i = 0; i < nfds; ++i) {
+            if (!(fds[i].revents & POLLIN))
+                continue;
+
+            uint8_t data[64];
+            ret = read(fds[i].fd, data, sizeof(data));
+            if (ret != sizeof(data))
+                continue;
+            parseMessage(fds[i].fd, data);
+        }
+    }
+
+    delete[] fds;
+}
+
+void HomeGateway::handleTimers()
+{
+    struct pollfd fds[1];
+
+    fds[0].fd = m_stale_timer.getFD();
+    fds[0].events = POLLIN;
+
+    int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), 0);
+    if (ret > 0) {
+        for (unsigned i = 0; i < sizeof(fds)/sizeof(fds[0]); ++i) {
+            if (!(fds[i].revents & POLLIN))
+                continue;
+
+            uint64_t tmp;
+            ret = read(fds[i].fd, &tmp, sizeof(tmp));
+            if (ret < 0)
+                continue;
+
+            if (i == 0)
+                checkStaleConnectionsAndDevices();
+        }
+    }
+}
+
+void HomeGateway::parseMessage(int fd, uint8_t *data)
 {
     DeviceUID uid;
     uint16_t type;
 
-    if ((unsigned int)len < uid.size() + sizeof(type)) {
-        std::stringstream ss;
-        ss << "Message too short";
-        Logger::warn(ss.str());
-        return;
-    }
-
     memcpy(uid.data(), data, uid.size());
     memcpy(&type, &data[6], sizeof(type));
-    len -= sizeof(uid) + sizeof(type);
     data += sizeof(uid) + sizeof(type);
 
     if (type == MessageType::ALIVE) {
-        /* name: 32 bytes */
-        if (len != 32) {
-            std::stringstream ss;
-            ss << "Received malformed DEVICE_REGISTER len=" << len;
-            Logger::warn(ss.str());
-            return;
-        }
 
         std::string name(reinterpret_cast<char*>(data), 32);
 
@@ -259,4 +286,38 @@ bool HomeGateway::lookup_device(DeviceUID uid)
     }
 
     return false;
+}
+
+void HomeGateway::checkStaleConnectionsAndDevices()
+{
+    std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
+
+    {
+        std::lock_guard<std::mutex> guard(m_connections_mutex);
+        auto itor = m_connections.begin();
+        while (itor != m_connections.end()) {
+            if (std::chrono::duration_cast<std::chrono::minutes>(t - itor->last_seen) > std::chrono::minutes(30)) {
+                Logger::info("Removing stale connection");
+                close(itor->fd);
+                itor = m_connections.erase(itor);
+            } else {
+                ++itor;
+            }
+        }
+    }
+
+    {
+        auto itor = m_devices.begin();
+        while (itor != m_devices.end()) {
+            if (std::chrono::duration_cast<std::chrono::minutes>(t - itor->conn.last_seen) > std::chrono::minutes(30)) {
+                std::stringstream ss;
+                ss << "Removing stale device, uid: " << uid_to_string(itor->uid) << ", name: " << itor->name;
+                Logger::info(ss.str());
+                close(itor->conn.fd);
+                itor = m_devices.erase(itor);
+            } else {
+                ++itor;
+            }
+        }
+    }
 }

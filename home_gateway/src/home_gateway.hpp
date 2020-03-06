@@ -2,6 +2,7 @@
 #define HOME_GATEWAY_HPP
 
 #include "device.hpp"
+#include "timer.hpp"
 #include <cstdint>
 #include <list>
 #include <map>
@@ -21,11 +22,16 @@ public:
     void handleSMSCommand(const std::string &from, const std::string &content);
 
 private:
-    void parseMessage(int fd, uint8_t *data, int len);
+    void handleConnections();
+    void handleDevices();
+    void handleTimers();
+
+    void parseMessage(int fd, uint8_t *data);
     void parseCommands();
     void sendVersion(const std::string &to);
     void sendDeviceList(const std::string &to);
     bool lookup_device(DeviceUID uid);
+    void checkStaleConnectionsAndDevices();
 
     /* Connections not yet associated with a UID */
     std::list<DeviceConnection> m_connections;
@@ -35,6 +41,8 @@ private:
 
     std::queue<std::pair<std::string,std::string>> m_commands;
     std::mutex m_commands_mutex;
+
+    Timer m_stale_timer;
 };
 
 #endif

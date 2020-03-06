@@ -16,6 +16,15 @@ static void print_help(char *program_name)
               << std::flush;
 }
 
+static void wait_ms(unsigned int ms)
+{
+    struct timespec req, rem;
+    req.tv_sec = ms / 1000;
+    req.tv_nsec = (ms - req.tv_sec * 1000) * 1000 * 1000;
+    while (nanosleep(&req, &rem))
+        req = rem;
+}
+
 int main(int argc, char **argv)
 {
     char *program_name = argv[0];
@@ -60,6 +69,7 @@ int main(int argc, char **argv)
     sms_server.start();
     while (true) {
         device_manager.process();
+        wait_ms(50);
     }
 
     sms_server.stop();
