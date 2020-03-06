@@ -17,8 +17,7 @@ CFLAGS += -ggdb -g3 -gz
 LDFLAGS += -ggdb -g3 -gz
 endif
 
-SRCS := src/device.cpp \
-		src/device_server.cpp \
+SRCS := src/device_server.cpp \
 		src/home_gateway.cpp \
 		src/logger.cpp \
 		src/main.cpp \

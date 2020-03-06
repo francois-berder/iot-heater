@@ -1,7 +1,6 @@
 #ifndef HOME_GATEWAY_HPP
 #define HOME_GATEWAY_HPP
 
-#include "device.hpp"
 #include "timer.hpp"
 #include <cstdint>
 #include <list>
@@ -10,6 +9,11 @@
 #include <mutex>
 #include <queue>
 #include <string>
+
+struct DeviceConnection {
+    int fd;
+    std::chrono::steady_clock::time_point last_seen;
+};
 
 class HomeGateway {
 public:
@@ -23,21 +27,15 @@ public:
 
 private:
     void handleConnections();
-    void handleDevices();
     void handleTimers();
 
-    void parseMessage(int fd, uint8_t *data);
+    void parseMessage(DeviceConnection &conn, uint8_t *data);
     void parseCommands();
     void sendVersion(const std::string &to);
-    void sendDeviceList(const std::string &to);
-    bool lookup_device(DeviceUID uid);
-    void checkStaleConnectionsAndDevices();
+    void checkStaleConnections();
 
-    /* Connections not yet associated with a UID */
     std::list<DeviceConnection> m_connections;
     std::mutex m_connections_mutex;
-
-    std::list<Device> m_devices;
 
     std::queue<std::pair<std::string,std::string>> m_commands;
     std::mutex m_commands_mutex;

@@ -32,8 +32,6 @@ enum DeviceFeatureID {
 HomeGateway::~HomeGateway()
 {
     /* Close all file descriptors */
-    for (auto& d : m_devices)
-        close(d.conn.fd);
     for (auto& conn : m_connections)
         close(conn.fd);
 }
@@ -41,7 +39,6 @@ HomeGateway::~HomeGateway()
 void HomeGateway::process()
 {
     handleConnections();
-    handleDevices();
     handleTimers();
     parseCommands();
 }
@@ -71,14 +68,17 @@ void HomeGateway::handleSMSCommand(const std::string &from, const std::string &c
 
 void HomeGateway::handleConnections()
 {
-    std::lock_guard<std::mutex> guard(m_connections_mutex);
+    struct pollfd *fds;
+    int nfds;
 
-    if (m_connections.empty())
-        return;
-
-    int nfds = m_connections.size();
-    struct pollfd *fds = new struct pollfd[nfds];
     {
+        std::lock_guard<std::mutex> guard(m_connections_mutex);
+
+        if (m_connections.empty())
+            return;
+
+        nfds = m_connections.size();
+        fds = new struct pollfd[nfds];
         int i = 0;
         for (auto &conn : m_connections) {
             fds[i].fd = conn.fd;
@@ -97,48 +97,18 @@ void HomeGateway::handleConnections()
             if (ioctl(fds[i].fd, FIONREAD, &n) < 0)
                 continue;
 
-            while (n > MESSAGE_SIZE) {
-                uint8_t data[MESSAGE_SIZE];
-                if (read(fds[i].fd, data, sizeof(data)) != sizeof(data))
-                    break;
-                parseMessage(fds[i].fd, data);
-                n -= MESSAGE_SIZE;
-            }
-        }
-    }
+            for (auto &conn : m_connections) {
+                if (conn.fd != fds[i].fd)
+                    continue;
 
-    delete[] fds;
-}
-
-void HomeGateway::handleDevices()
-{
-    int nfds = m_devices.size();
-    struct pollfd *fds = new struct pollfd[nfds];
-    {
-        int i = 0;
-        for (auto &d : m_devices) {
-            fds[i].fd = d.conn.fd;
-            fds[i].events = POLLIN;
-            ++i;
-        }
-    }
-
-    int ret = poll(fds, nfds, 0);
-    if (ret > 0) {
-        for (int i = 0; i < nfds; ++i) {
-            if (!(fds[i].revents & POLLIN))
-                continue;
-
-            size_t n;
-            if (ioctl(fds[i].fd, FIONREAD, &n) < 0)
-                continue;
-
-            while (n > MESSAGE_SIZE) {
-                uint8_t data[MESSAGE_SIZE];
-                if (read(fds[i].fd, data, sizeof(data)) != sizeof(data))
-                    break;
-                parseMessage(fds[i].fd, data);
-                n -= MESSAGE_SIZE;
+                while (n > MESSAGE_SIZE) {
+                    uint8_t data[MESSAGE_SIZE];
+                    if (read(fds[i].fd, data, sizeof(data)) != sizeof(data))
+                        break;
+                    parseMessage(conn, data);
+                    n -= MESSAGE_SIZE;
+                }
+                break;
             }
         }
     }
@@ -165,73 +135,19 @@ void HomeGateway::handleTimers()
                 continue;
 
             if (i == 0)
-                checkStaleConnectionsAndDevices();
+                checkStaleConnections();
         }
     }
 }
 
-void HomeGateway::parseMessage(int fd, uint8_t *data)
+void HomeGateway::parseMessage(DeviceConnection &conn, uint8_t *data)
 {
-    DeviceUID uid;
     uint16_t type;
-
-    memcpy(uid.data(), data, uid.size());
-    memcpy(&type, &data[6], sizeof(type));
-    data += sizeof(uid) + sizeof(type);
+    memcpy(&type, data, sizeof(type));
+    data += sizeof(type);
 
     if (type == MessageType::ALIVE) {
-
-        std::string name(reinterpret_cast<char*>(data), 32);
-
-        /* Let's check if another device has this name */
-        for (auto &d: m_devices) {
-            if (d.name == name && d.conn.fd != fd && d.uid != uid) {
-                std::stringstream ss;
-                ss << "Device " << uid_to_string(d.uid) << " already has the same name";
-                Logger::warn(ss.str());
-            }
-        }
-
-        /* Do we already know this device ? */
-        if (lookup_device(uid)) {
-            for (auto &d : m_devices) {
-                if (d.uid != uid)
-                    continue;
-
-                if (d.name != name) {
-                    std::stringstream ss;
-                    ss << "Device " << uid_to_string(d.uid) << " changes name to \"" << name << '\"';
-                    Logger::info(ss.str());
-                }
-                d.name = name;
-                d.conn.last_seen = std::chrono::steady_clock::now();
-                break;
-            }
-        } else {
-            /* Create a new device */
-            Device d;
-            d.conn.fd = fd;
-            d.conn.last_seen = std::chrono::steady_clock::now();
-            d.uid = uid;
-            d.name = name;
-            m_devices.push_back(d);
-
-            /* Remove DeviceConnection from list */
-            {
-                std::lock_guard<std::mutex> guard(m_connections_mutex);
-
-                for (auto it = m_connections.begin(); it != m_connections.end(); ++it) {
-                    if (it->fd == fd) {
-                        m_connections.erase(it);
-                        break;
-                    }
-                }
-            }
-
-            std::stringstream ss;
-            ss << "New device. uid: " << uid_to_string(uid) << ", name: " << name;
-            Logger::info(ss.str());
-        }
+        conn.last_seen = std::chrono::steady_clock::now();
     } else {
         std::stringstream ss;
         ss << "Received unknown message type " << type << " from ";
@@ -258,8 +174,6 @@ void HomeGateway::parseCommands()
             SMSSender::instance().setVerboseLevel(SMS_SENDER_QUIET);
         else if (content == "VERSION")
             sendVersion(from);
-        else if (content == "LIST" || content == "ENUMERATE")
-            sendDeviceList(from);
     }
 }
 
@@ -272,67 +186,18 @@ void HomeGateway::sendVersion(const std::string &to)
     SMSSender::instance().sendSMS(to, content.str());
 }
 
-void HomeGateway::sendDeviceList(const std::string &to)
+void HomeGateway::checkStaleConnections()
 {
-    std::stringstream content;
-
-    unsigned int device_count = 0;
-    std::list<std::string> device_names;
-
-    for (auto &d : m_devices)
-        device_names.push_back(d.name);
-
-    if (device_count) {
-        content << device_count << " devices registered\n";
-        for (auto &n : device_names)
-            content << n << '\n';
-    } else {
-        content << "No device registered\n";
-    }
-
-    SMSSender::instance().sendSMS(to, content.str());
-}
-
-bool HomeGateway::lookup_device(DeviceUID uid)
-{
-    for (auto &d : m_devices) {
-        if (d.uid == uid)
-            return true;
-    }
-
-    return false;
-}
-
-void HomeGateway::checkStaleConnectionsAndDevices()
-{
+    std::lock_guard<std::mutex> guard(m_connections_mutex);
     std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
-
-    {
-        std::lock_guard<std::mutex> guard(m_connections_mutex);
-        auto itor = m_connections.begin();
-        while (itor != m_connections.end()) {
-            if (std::chrono::duration_cast<std::chrono::minutes>(t - itor->last_seen) > std::chrono::minutes(30)) {
-                Logger::info("Removing stale connection");
-                close(itor->fd);
-                itor = m_connections.erase(itor);
-            } else {
-                ++itor;
-            }
-        }
-    }
-
-    {
-        auto itor = m_devices.begin();
-        while (itor != m_devices.end()) {
-            if (std::chrono::duration_cast<std::chrono::minutes>(t - itor->conn.last_seen) > std::chrono::minutes(30)) {
-                std::stringstream ss;
-                ss << "Removing stale device, uid: " << uid_to_string(itor->uid) << ", name: " << itor->name;
-                Logger::info(ss.str());
-                close(itor->conn.fd);
-                itor = m_devices.erase(itor);
-            } else {
-                ++itor;
-            }
+    auto itor = m_connections.begin();
+    while (itor != m_connections.end()) {
+        if (std::chrono::duration_cast<std::chrono::minutes>(t - itor->last_seen) > std::chrono::minutes(30)) {
+            Logger::info("Removing stale connection");
+            close(itor->fd);
+            itor = m_connections.erase(itor);
+        } else {
+            ++itor;
         }
     }
 }
