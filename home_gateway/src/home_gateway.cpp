@@ -8,6 +8,7 @@
 #include <poll.h>
 #include <sstream>
 #include <string.h>
+#include <sys/ioctl.h>
 #include <unistd.h>
 
 #ifndef GIT_HASH
@@ -17,6 +18,8 @@
 #ifndef BUILD_TIME
 #define BUILD_TIME      "unknown-time"
 #endif
+
+#define MESSAGE_SIZE    (64)
 
 enum MessageType {
     ALIVE,
@@ -90,11 +93,17 @@ void HomeGateway::handleConnections()
             if (!(fds[i].revents & POLLIN))
                 continue;
 
-            uint8_t data[64];
-            ret = read(fds[i].fd, data, sizeof(data));
-            if (ret != sizeof(data))
+            size_t n;
+            if (ioctl(fds[i].fd, FIONREAD, &n) < 0)
                 continue;
-            parseMessage(fds[i].fd, data);
+
+            while (n > MESSAGE_SIZE) {
+                uint8_t data[MESSAGE_SIZE];
+                if (read(fds[i].fd, data, sizeof(data)) != sizeof(data))
+                    break;
+                parseMessage(fds[i].fd, data);
+                n -= MESSAGE_SIZE;
+            }
         }
     }
 
@@ -120,11 +129,17 @@ void HomeGateway::handleDevices()
             if (!(fds[i].revents & POLLIN))
                 continue;
 
-            uint8_t data[64];
-            ret = read(fds[i].fd, data, sizeof(data));
-            if (ret != sizeof(data))
+            size_t n;
+            if (ioctl(fds[i].fd, FIONREAD, &n) < 0)
                 continue;
-            parseMessage(fds[i].fd, data);
+
+            while (n > MESSAGE_SIZE) {
+                uint8_t data[MESSAGE_SIZE];
+                if (read(fds[i].fd, data, sizeof(data)) != sizeof(data))
+                    break;
+                parseMessage(fds[i].fd, data);
+                n -= MESSAGE_SIZE;
+            }
         }
     }
 
