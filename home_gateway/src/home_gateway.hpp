@@ -24,7 +24,7 @@ enum HeaterState {
 
 class HomeGateway {
 public:
-    HomeGateway() = default;
+    HomeGateway();
     ~HomeGateway();
 
     void process();
@@ -42,6 +42,9 @@ private:
     void checkStaleConnections();
     void broadcastHeaterState();
     void sendHeaterState(int fd);
+
+    bool loadState();
+    void saveState();
 
     std::list<DeviceConnection> m_connections;
     std::mutex m_connections_mutex;
