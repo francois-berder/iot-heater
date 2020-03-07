@@ -195,21 +195,25 @@ void HomeGateway::parseCommands()
             sendVersion(from);
         else if (content == "HEATER OFF") {
             if (m_heater_state != HEATER_OFF) {
+                Logger::debug("Changing heater state to OFF");
                 m_heater_state = HEATER_OFF;
                 broadcastHeaterState();
             }
         } else if (content == "HEATER ECO") {
             if (m_heater_state != HEATER_ECO) {
+                Logger::debug("Changing heater state to ECO");
                 m_heater_state = HEATER_ECO;
                 broadcastHeaterState();
             }
         } else if (content == "HEATER DEFROST") {
             if (m_heater_state != HEATER_DEFROST) {
+                Logger::debug("Changing heater state to DEFROST");
                 m_heater_state = HEATER_DEFROST;
                 broadcastHeaterState();
             }
         } else if (content == "HEATER COMFORT") {
             if (m_heater_state != HEATER_COMFORT) {
+                Logger::debug("Changing heater state to COMFORT");
                 m_heater_state = HEATER_COMFORT;
                 broadcastHeaterState();
             }
@@ -317,6 +321,8 @@ bool HomeGateway::loadState()
         }
     }
 
+    Logger::debug("Loaded state from file " STATE_FILE_PATH);
+
     return true;
 }
 
@@ -341,4 +347,6 @@ void HomeGateway::saveState()
         file << "heater_state=comfort\n";
         break;
     }
+
+    Logger::debug("Saved state to file " STATE_FILE_PATH);
 }
