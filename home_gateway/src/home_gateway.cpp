@@ -198,24 +198,28 @@ void HomeGateway::parseCommands()
                 Logger::debug("Changing heater state to OFF");
                 m_heater_state = HEATER_OFF;
                 broadcastHeaterState();
+                saveState();
             }
         } else if (content == "HEATER ECO") {
             if (m_heater_state != HEATER_ECO) {
                 Logger::debug("Changing heater state to ECO");
                 m_heater_state = HEATER_ECO;
                 broadcastHeaterState();
+                saveState();
             }
         } else if (content == "HEATER DEFROST") {
             if (m_heater_state != HEATER_DEFROST) {
                 Logger::debug("Changing heater state to DEFROST");
                 m_heater_state = HEATER_DEFROST;
                 broadcastHeaterState();
+                saveState();
             }
         } else if (content == "HEATER COMFORT") {
             if (m_heater_state != HEATER_COMFORT) {
                 Logger::debug("Changing heater state to COMFORT");
                 m_heater_state = HEATER_COMFORT;
                 broadcastHeaterState();
+                saveState();
             }
         } else if (content == "GET HEATER") {
             std::string val;
