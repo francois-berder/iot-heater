@@ -15,6 +15,13 @@ struct DeviceConnection {
     std::chrono::steady_clock::time_point last_seen;
 };
 
+enum HeaterState {
+    HEATER_OFF,
+    HEATER_DEFROST,
+    HEATER_ECO,
+    HEATER_COMFY,
+};
+
 class HomeGateway {
 public:
     HomeGateway() = default;
@@ -33,6 +40,8 @@ private:
     void parseCommands();
     void sendVersion(const std::string &to);
     void checkStaleConnections();
+    void broadcastHeaterState();
+    void sendHeaterState(int fd);
 
     std::list<DeviceConnection> m_connections;
     std::mutex m_connections_mutex;
@@ -41,6 +50,7 @@ private:
     std::mutex m_commands_mutex;
 
     Timer m_stale_timer;
+    HeaterState m_heater_state;
 };
 
 #endif

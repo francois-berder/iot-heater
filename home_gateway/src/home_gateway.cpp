@@ -23,9 +23,6 @@
 
 enum MessageType {
     ALIVE,
-};
-
-enum DeviceFeatureID {
     HEATER,
 };
 
@@ -148,6 +145,7 @@ void HomeGateway::parseMessage(DeviceConnection &conn, uint8_t *data)
 
     if (type == MessageType::ALIVE) {
         conn.last_seen = std::chrono::steady_clock::now();
+        sendHeaterState(conn.fd);
     } else {
         std::stringstream ss;
         ss << "Received unknown message type " << type << " from ";
@@ -174,6 +172,27 @@ void HomeGateway::parseCommands()
             SMSSender::instance().setVerboseLevel(SMS_SENDER_QUIET);
         else if (content == "VERSION")
             sendVersion(from);
+        else if (content == "HEATER OFF") {
+            if (m_heater_state != HEATER_OFF) {
+                m_heater_state = HEATER_OFF;
+                broadcastHeaterState();
+            }
+        } else if (content == "HEATER ECO") {
+            if (m_heater_state != HEATER_ECO) {
+                m_heater_state = HEATER_ECO;
+                broadcastHeaterState();
+            }
+        } else if (content == "HEATER DEFROST") {
+            if (m_heater_state != HEATER_DEFROST) {
+                m_heater_state = HEATER_DEFROST;
+                broadcastHeaterState();
+            }
+        } else if (content == "HEATER COMFY") {
+            if (m_heater_state != HEATER_COMFY) {
+                m_heater_state = HEATER_COMFY;
+                broadcastHeaterState();
+            }
+        }
     }
 }
 
@@ -199,5 +218,29 @@ void HomeGateway::checkStaleConnections()
         } else {
             ++itor;
         }
+    }
+}
+
+void HomeGateway::broadcastHeaterState()
+{
+    std::lock_guard<std::mutex> guard(m_connections_mutex);
+    for (auto &conn : m_connections)
+        sendHeaterState(conn.fd);
+}
+
+void HomeGateway::sendHeaterState(int fd)
+{
+    uint8_t data[MESSAGE_SIZE];
+    memset(data, 0xFF, sizeof(data));
+    uint16_t type = HEATER;
+    memcpy(data, &type, sizeof(type));
+    data[2] = m_heater_state;
+
+    int sent = 0;
+    while (sent < MESSAGE_SIZE) {
+        int ret = write(fd, &data[sent], MESSAGE_SIZE - sent);
+        if (ret <= 0)
+            break;
+        sent += ret;
     }
 }
