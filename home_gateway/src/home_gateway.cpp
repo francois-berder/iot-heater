@@ -177,6 +177,12 @@ void HomeGateway::parseCommands()
         std::tie(from, content) = m_commands.front();
         m_commands.pop();
 
+        /* Trim content */
+        content.erase(content.begin(), std::find_if(content.begin(), content.end(),
+            std::not1(std::ptr_fun<int, int>(std::isspace))));
+        content.erase(std::find_if(content.rbegin(), content.rend(),
+            std::not1(std::ptr_fun<int, int>(std::isspace))).base(), content.end());
+
         if (content == "PING")
             SMSSender::instance().sendSMS(from, "PONG");
         else if (content == "DEBUG")
