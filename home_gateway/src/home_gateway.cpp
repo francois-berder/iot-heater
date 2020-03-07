@@ -213,6 +213,16 @@ void HomeGateway::parseCommands()
                 m_heater_state = HEATER_COMFORT;
                 broadcastHeaterState();
             }
+        } else if (content == "GET HEATER") {
+            std::string val;
+            switch (m_heater_state) {
+            case HEATER_OFF: val = "OFF"; break;
+            case HEATER_DEFROST: val = "DEFROST"; break;
+            case HEATER_ECO: val = "ECO"; break;
+            case HEATER_COMFORT: val = "COMFORT"; break;
+            default: val = "UNKNOWN"; break;
+            }
+            SMSSender::instance().sendSMS(from, val);
         }
     }
 }
