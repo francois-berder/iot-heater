@@ -224,11 +224,11 @@ void HomeGateway::parseCommands()
         } else if (content == "GET HEATER") {
             std::string val;
             switch (m_heater_state) {
-            case HEATER_OFF: val = "OFF"; break;
-            case HEATER_DEFROST: val = "DEFROST"; break;
-            case HEATER_ECO: val = "ECO"; break;
-            case HEATER_COMFORT: val = "COMFORT"; break;
-            default: val = "UNKNOWN"; break;
+            case HEATER_OFF: val = "HEATER OFF"; break;
+            case HEATER_DEFROST: val = "HEATER DEFROST"; break;
+            case HEATER_ECO: val = "HEATER ECO"; break;
+            case HEATER_COMFORT: val = "HEATER COMFORT"; break;
+            default: val = "HEATER UNKNOWN"; break;
             }
             SMSSender::instance().sendSMS(from, val);
         }
@@ -318,6 +318,10 @@ bool HomeGateway::loadState()
                 m_heater_state = HEATER_ECO;
             else if (val == "comfort")
                 m_heater_state = HEATER_COMFORT;
+            else {
+                m_heater_state = HEATER_OFF;
+                Logger::err("Invalid value for heater_state key. Setting heater_state to OFF.");
+            }
         } else {
             std::stringstream ss;
             ss << "Invalid key \"" << key << '\"';
