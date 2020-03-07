@@ -19,7 +19,7 @@ enum HeaterState {
     HEATER_OFF,
     HEATER_DEFROST,
     HEATER_ECO,
-    HEATER_COMFY,
+    HEATER_COMFORT,
 };
 
 class HomeGateway {

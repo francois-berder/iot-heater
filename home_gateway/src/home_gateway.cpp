@@ -202,9 +202,9 @@ void HomeGateway::parseCommands()
                 m_heater_state = HEATER_DEFROST;
                 broadcastHeaterState();
             }
-        } else if (content == "HEATER COMFY") {
-            if (m_heater_state != HEATER_COMFY) {
-                m_heater_state = HEATER_COMFY;
+        } else if (content == "HEATER COMFORT") {
+            if (m_heater_state != HEATER_COMFORT) {
+                m_heater_state = HEATER_COMFORT;
                 broadcastHeaterState();
             }
         }
@@ -292,8 +292,8 @@ bool HomeGateway::loadState()
                 m_heater_state = HEATER_DEFROST;
             else if (val == "eco")
                 m_heater_state = HEATER_ECO;
-            else if (val == "comfy")
-                m_heater_state = HEATER_COMFY;
+            else if (val == "comfort")
+                m_heater_state = HEATER_COMFORT;
         } else {
             std::stringstream ss;
             ss << "Invalid key \"" << key << '\"';
@@ -321,8 +321,8 @@ void HomeGateway::saveState()
     case HEATER_ECO:
         file << "heater_state=eco\n";
         break;
-    case HEATER_COMFY:
-        file << "heater_state=comfy\n";
+    case HEATER_COMFORT:
+        file << "heater_state=comfort\n";
         break;
     }
 }
