@@ -5,7 +5,7 @@
 
 struct __attribute__((packed)) settings_t {
     uint32_t magic0;
-    char name[64];
+    char name[32];
     char ssid[64];
     char password[64];
     uint32_t magic1;
@@ -38,7 +38,7 @@ void settings_create(char *name, char *ssid, char *password);
 /**
  * @brief Get name
  *
- * @param[out] name 64 char array
+ * @param[out] name 32 char array
  */
 void settings_get_name(char *name);
 
