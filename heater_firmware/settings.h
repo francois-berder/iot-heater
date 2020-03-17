@@ -1,6 +1,7 @@
 #ifndef SETTINGS_H
 #define SETTINGS_H
 
+#include "Arduino.h"
 #include <stdint.h>
 
 struct __attribute__((packed)) settings_t {
@@ -33,7 +34,7 @@ void settings_erase(void);
  * @param[in] ssid
  * @param[in] password
  */
-void settings_create(char *name, char *ssid, char *password);
+void settings_create(String &name, String &ssid, String &password);
 
 /**
  * @brief Get name

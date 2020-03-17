@@ -46,7 +46,7 @@ void settings_erase(void)
     memset(&settings, 0, sizeof(settings));
 }
 
-void settings_create(char *name, char *ssid, char *password)
+void settings_create(String &name, String &ssid, String &password)
 {
     /* Erase EEPROM */
     for (int i = 0; i < EEPROM_LEN; ++i)
@@ -57,6 +57,10 @@ void settings_create(char *name, char *ssid, char *password)
     memset(&settings, 0, sizeof(settings));
     settings.magic0 = MAGIC0;
     settings.magic1 = MAGIC1;
+
+    name.toCharArray(settings.name, sizeof(settings.name));
+    ssid.toCharArray(settings.ssid, sizeof(settings.ssid));
+    password.toCharArray(settings.password, sizeof(settings.password));
 
     /* Write settings */
     uint8_t *src = (uint8_t *)&settings;
