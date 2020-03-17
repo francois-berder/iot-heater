@@ -11,7 +11,7 @@ const char uncommissioned_index_html[] PROGMEM = R"rawliteral(
     <h2>Heater registration</h2>
     <form action="/register" method="post">
         Name:<br>
-        <input type="text" name="name" maxlength="63">
+        <input type="text" name="name" maxlength="31">
         <br>
         Wifi name:<br>
         <input type="text" name="ssid" maxlength="63">
