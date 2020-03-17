@@ -1,5 +1,6 @@
 #include "board.h"
 #include "uncommissioned.h"
+#include "settings.h"
 #include "Arduino.h"
 #include "Ticker.h"
 #include "webpages.h"
@@ -23,6 +24,7 @@ static bool button_pressed;
 static unsigned long button_pressed_start;
 
 static bool joining_wifi_network;
+static String device_name;
 static String wifi_ssid;
 static String wifi_password;
 static unsigned long joining_wifi_network_start;
@@ -73,6 +75,7 @@ void setup_uncommissioned(void)
       &&  request->hasParam("password", true)) {
         /* Attempt to join SSID/Password */
         if (!joining_wifi_network) {
+            device_name = request->getParam("name", true)->value();
             wifi_ssid = request->getParam("ssid", true)->value();
             wifi_password = request->getParam("password", true)->value();
             if (wifi_ssid.length() < 64 && wifi_password.length() < 64) {
@@ -115,7 +118,7 @@ void loop_uncommissioned(void)
             delay(500);
         }
         if (WiFi.status() == WL_CONNECTED) {
-            /* @TODO Write configuration */
+            settings_create(device_name, wifi_ssid, wifi_password);
         }
         ESP.restart();
     }
