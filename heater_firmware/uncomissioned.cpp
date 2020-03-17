@@ -8,8 +8,8 @@
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
 
-#define BUTTON_PRESS_TIMEOUT  (10000)    /* Timeout in milliseconds */
-
+#define BUTTON_PRESS_TIMEOUT  (10000)   /* Timeout in milliseconds */
+#define JOIN_NETWORK_TIMEOUT  (10000)   /* Timeout in milliseconds */
 
 #define SLOW_BLINK_PERIOD     (500) /* In ms */
 
@@ -21,6 +21,11 @@ static DNSServer dns_server;
 
 static bool button_pressed;
 static unsigned long button_pressed_start;
+
+static bool joining_wifi_network;
+static String wifi_ssid;
+static String wifi_password;
+static unsigned long joining_wifi_network_start;
 
 static void toggle_leds()
 {
@@ -61,8 +66,28 @@ void setup_uncommissioned(void)
             request->send_P(200, "text/html", uncommissioned_index_html);
         }
     );
-    server.begin();
 
+    server.on("/register", HTTP_POST, [] (AsyncWebServerRequest *request) {
+      if (request->hasParam("name", true)
+      &&  request->hasParam("ssid", true)
+      &&  request->hasParam("password", true)) {
+        /* Attempt to join SSID/Password */
+        if (!joining_wifi_network) {
+            wifi_ssid = request->getParam("ssid", true)->value();
+            wifi_password = request->getParam("password", true)->value();
+            if (wifi_ssid.length() < 64 && wifi_password.length() < 64) {
+                joining_wifi_network_start = millis();
+                joining_wifi_network = true;
+            } else {
+                request->send_P(200, "text/html", uncommissioned_index_html);
+            }
+        }
+    } else {
+        request->send_P(200, "text/html", uncommissioned_index_html);
+      }
+    }
+    );
+    server.begin();
     Serial.begin(115200);
 }
 
@@ -79,6 +104,20 @@ void loop_uncommissioned(void)
       }
     } else {
       button_pressed = false;
+    }
+
+    if (joining_wifi_network) {
+        server.end();
+        dns_server.stop();
+        WiFi.mode(WIFI_STA);
+        WiFi.begin(wifi_ssid, wifi_password);
+        while (WiFi.status() != WL_CONNECTED && (millis() - joining_wifi_network_start) < JOIN_NETWORK_TIMEOUT) {
+            delay(500);
+        }
+        if (WiFi.status() == WL_CONNECTED) {
+            /* @TODO Write configuration */
+        }
+        ESP.restart();
     }
     
     dns_server.processNextRequest();
