@@ -68,14 +68,14 @@ void setup_uncommissioned(void)
 
 void loop_uncommissioned(void)
 {
-      /* Clear configuration if button is pressed for a while */
+    /* Clear configuration if button is pressed for a while */
     if (digitalRead(BUTTON_PIN) == 0) {
       if (!button_pressed) {
         button_pressed = true;
         button_pressed_start = millis();
       } else if (millis() - button_pressed_start >= BUTTON_PRESS_TIMEOUT) {
-        printf("restart...\n");
-      //  ESP.restart();
+        /* @TODO Clear configuration */
+        ESP.restart();
       }
     } else {
       button_pressed = false;
