@@ -64,16 +64,14 @@ void loop_commissioned()
 {
     /* Clear configuration if button is pressed for a while */
     if (digitalRead(BUTTON_PIN) == 0) {
-        button_pressed = true;
-        button_pressed_start = millis();
-    } else {
-        button_pressed = false;
-    }
-
-    if (button_pressed) {
-        if (millis() - button_pressed_start >= BUTTON_PRESS_TIMEOUT) {
+        if (!button_pressed) {
+            button_pressed = true;
+            button_pressed_start = millis();
+        } else if (millis() - button_pressed_start >= BUTTON_PRESS_TIMEOUT) {
             settings_erase();
             ESP.restart();
         }
+    } else {
+        button_pressed = false;
     }
 }

@@ -97,15 +97,15 @@ void loop_uncommissioned(void)
 {
     /* Clear configuration if button is pressed for a while */
     if (digitalRead(BUTTON_PIN) == 0) {
-      if (!button_pressed) {
-        button_pressed = true;
-        button_pressed_start = millis();
-      } else if (millis() - button_pressed_start >= BUTTON_PRESS_TIMEOUT) {
-        /* @TODO Clear configuration */
-        ESP.restart();
-      }
+        if (!button_pressed) {
+            button_pressed = true;
+            button_pressed_start = millis();
+        } else if (millis() - button_pressed_start >= BUTTON_PRESS_TIMEOUT) {
+            settings_erase();
+            ESP.restart();
+        }
     } else {
-      button_pressed = false;
+        button_pressed = false;
     }
 
     if (joining_wifi_network) {
