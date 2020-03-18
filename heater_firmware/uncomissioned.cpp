@@ -78,7 +78,7 @@ void setup_uncommissioned(void)
             device_name = request->getParam("name", true)->value();
             wifi_ssid = request->getParam("ssid", true)->value();
             wifi_password = request->getParam("password", true)->value();
-            if (wifi_ssid.length() < 64 && wifi_password.length() < 64) {
+            if (device_name.length() < 32 && wifi_ssid.length() < 64 && wifi_password.length() < 64) {
                 joining_wifi_network_start = millis();
                 joining_wifi_network = true;
             } else {
