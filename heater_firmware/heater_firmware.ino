@@ -6,12 +6,17 @@ bool commissioned;
 
 void setup()
 {
+    Serial.begin(115200);
+
     commissioned = settings_load();
 
-    if (commissioned)
+    if (commissioned) {
+        Serial.println("Entering commissioned mode");
         setup_commissioned();
-    else
+    } else {
+        Serial.println("Entering uncommissioned mode");
         setup_uncommissioned();
+    }
 }
 
 void loop()

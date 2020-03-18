@@ -91,7 +91,6 @@ void setup_uncommissioned(void)
     }
     );
     server.begin();
-    Serial.begin(115200);
 }
 
 void loop_uncommissioned(void)
