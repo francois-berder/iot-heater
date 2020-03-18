@@ -50,7 +50,7 @@ void setup_commissioned()
     }
 
     /* Start mDNS server */
-    char name[64];
+    char name[32];
     settings_get_name(name);
     MDNS.begin(name);
 
