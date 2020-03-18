@@ -46,7 +46,7 @@ void setup_commissioned()
 
     if (WiFi.status() != WL_CONNECTED && timeout == WIFI_JOIN_TIMEOUT) {
         /* @todo Display error code on LED 2 */
-        while (1);
+        ESP.restart();
     }
 
     /* Start mDNS server */
