@@ -35,6 +35,8 @@ void setup_commissioned()
     char password[64];
     settings_get_password(password);
     WiFi.begin(ssid, password);
+    Serial.print("Connecting to Wifi: ");
+    Serial.println(ssid);
     /* Wait for the WiFi to connect */
     int timeout = 0;
     while (WiFi.status() != WL_CONNECTED && timeout < WIFI_JOIN_TIMEOUT) {
