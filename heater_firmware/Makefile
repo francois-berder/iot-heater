@@ -3,11 +3,20 @@ SERIAL_PORT ?= /dev/ttyUSB0
 
 TARGET := heater_firmware.bin
 
+SRCS := board.h \
+		commissioned.cpp commissioned.h \
+		heater_firmware.ino \
+		settings.cpp settings.h \
+		uncomissioned.cpp uncommissioned.h \
+		webpages.cpp webpages.h
+
 .PHONY: all
 all: $(TARGET)
 
-$(TARGET):
+$(TARGET): $(SRCS)
 	arduino-cli compile -b $(BOARD_FQN) --build-path $(CURDIR)/build --build-cache-path $(CURDIR)/.cache -o $@
+
+$(SRCS):
 
 .PHONY: upload
 upload: $(TARGET)
