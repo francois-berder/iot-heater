@@ -11,9 +11,26 @@
 #define BUTTON_PRESS_TIMEOUT  (10000)    /* Timeout in milliseconds */
 #define WIFI_JOIN_TIMEOUT     (15000)    /* Timeout in milliseconds */
 
+static WiFiEventHandler wifi_connected_handler;
+static WiFiEventHandler wifi_disconnected_handler;
+static bool connected;
+
 static AsyncWebServer server(80);
 static bool button_pressed;
 static unsigned long button_pressed_start;
+
+
+void wifi_connected(const WiFiEventStationModeConnected& event)
+{
+    Serial.println("Connected to WiFi");
+    connected = true;
+}
+
+void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
+{
+    Serial.println("Disonnected from WiFi");
+    connected = false;
+}
 
 void setup_commissioned()
 {
@@ -34,17 +51,15 @@ void setup_commissioned()
     settings_get_ssid(ssid);
     char password[64];
     settings_get_password(password);
+    wifi_connected_handler = WiFi.onStationModeConnected(wifi_connected);
+    wifi_disconnected_handler = WiFi.onStationModeDisconnected(wifi_disconnected);
     WiFi.begin(ssid, password);
     Serial.print("Connecting to Wifi: ");
     Serial.println(ssid);
-    /* Wait for the WiFi to connect */
-    unsigned long start = millis();
-    while (WiFi.status() != WL_CONNECTED && (millis() - start) < WIFI_JOIN_TIMEOUT) {
-        delay(200);
-    }
-    if (WiFi.status() != WL_CONNECTED && (millis() - start) >= WIFI_JOIN_TIMEOUT) {
-        /* @todo Display error code on LED 2 */
-        ESP.restart();
+
+    if (WiFi.status() == WL_CONNECTED) {
+        Serial.println("Connected to WiFi");
+        connected = true;
     }
 
     /* Start mDNS server */
@@ -73,5 +88,9 @@ void loop_commissioned()
         }
     } else {
         button_pressed = false;
+    }
+
+    if (connected) {
+        /* @todo Send ALIVE message to base station */
     }
 }
