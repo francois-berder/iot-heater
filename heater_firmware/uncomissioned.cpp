@@ -12,7 +12,8 @@
 #define BUTTON_PRESS_TIMEOUT  (10000)   /* Timeout in milliseconds */
 #define JOIN_NETWORK_TIMEOUT  (10000)   /* Timeout in milliseconds */
 
-#define SLOW_BLINK_PERIOD     (500) /* In ms */
+#define SLOW_BLINK_PERIOD     (1000) /* In ms */
+#define FAST_BLINK_PERIOD     (100)
 
 #define DNS_PORT              (53)
 
@@ -109,6 +110,8 @@ void loop_uncommissioned(void)
     }
 
     if (joining_wifi_network) {
+        leds_ticker.detach();
+        leds_ticker.attach_ms(FAST_BLINK_PERIOD, toggle_leds);
         server.end();
         dns_server.stop();
         WiFi.mode(WIFI_STA);
@@ -121,6 +124,6 @@ void loop_uncommissioned(void)
         }
         ESP.restart();
     }
-    
+
     dns_server.processNextRequest();
 }
