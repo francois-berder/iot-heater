@@ -9,7 +9,7 @@
 #include <ESPAsyncWebServer.h>
 
 #define BUTTON_PRESS_TIMEOUT  (10000)    /* Timeout in milliseconds */
-#define WIFI_JOIN_TIMEOUT     (15)    /* Timeout in seconds */
+#define WIFI_JOIN_TIMEOUT     (15000)    /* Timeout in milliseconds */
 
 static AsyncWebServer server(80);
 static bool button_pressed;
@@ -38,13 +38,11 @@ void setup_commissioned()
     Serial.print("Connecting to Wifi: ");
     Serial.println(ssid);
     /* Wait for the WiFi to connect */
-    int timeout = 0;
-    while (WiFi.status() != WL_CONNECTED && timeout < WIFI_JOIN_TIMEOUT) {
-        delay(1000);
-        timeout++;
+    unsigned long start = millis();
+    while (WiFi.status() != WL_CONNECTED && (millis() - start) < WIFI_JOIN_TIMEOUT) {
+        delay(200);
     }
-
-    if (WiFi.status() != WL_CONNECTED && timeout == WIFI_JOIN_TIMEOUT) {
+    if (WiFi.status() != WL_CONNECTED && (millis() - start) >= WIFI_JOIN_TIMEOUT) {
         /* @todo Display error code on LED 2 */
         ESP.restart();
     }
