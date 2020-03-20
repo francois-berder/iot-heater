@@ -23,7 +23,7 @@ void setup_commissioned()
     digitalWrite(LED1_PIN, 1);
     digitalWrite(LED2_PIN, 0);
 
-    pinMode(BUTTON_PIN, INPUT);
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
 
     pinMode(LEFT_OUTPUT_PIN, OUTPUT);
     digitalWrite(LEFT_OUTPUT_PIN, 0);
