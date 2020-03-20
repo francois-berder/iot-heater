@@ -1,4 +1,3 @@
+bin/
 build/
 .cache/
-*.bin
-*.elf
