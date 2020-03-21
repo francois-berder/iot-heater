@@ -38,10 +38,6 @@ static void toggle_leds()
 
 void setup_uncommissioned(void)
 {
-    pinMode(POSITIVE_OUTPUT_PIN, OUTPUT);
-    pinMode(NEGATIVE_OUTPUT_PIN, OUTPUT);
-    digitalWrite(POSITIVE_OUTPUT_PIN, 1);
-    digitalWrite(NEGATIVE_OUTPUT_PIN, 0);
     pinMode(LED1_PIN, OUTPUT);
     pinMode(LED2_PIN, OUTPUT);
     leds_ticker.attach_ms(SLOW_BLINK_PERIOD, toggle_leds);
