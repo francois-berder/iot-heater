@@ -20,13 +20,13 @@ static bool button_pressed;
 static unsigned long button_pressed_start;
 
 
-void wifi_connected(const WiFiEventStationModeConnected& event)
+static void wifi_connected(const WiFiEventStationModeConnected& event)
 {
     Serial.println("Connected to WiFi");
     connected = true;
 }
 
-void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
+static void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
 {
     Serial.println("Disonnected from WiFi");
     connected = false;
