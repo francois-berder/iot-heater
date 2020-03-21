@@ -42,10 +42,8 @@ void setup_commissioned()
 
     pinMode(BUTTON_PIN, INPUT_PULLUP);
 
-    pinMode(LEFT_OUTPUT_PIN, OUTPUT);
-    digitalWrite(LEFT_OUTPUT_PIN, 0);
-    pinMode(RIGHT_OUTPUT_PIN, OUTPUT);
-    digitalWrite(RIGHT_OUTPUT_PIN, 0);
+    pinMode(POSITIVE_OUTPUT_PIN, OUTPUT);
+    pinMode(NEGATIVE_OUTPUT_PIN, OUTPUT);
 
     char ssid[64];
     settings_get_ssid(ssid);
