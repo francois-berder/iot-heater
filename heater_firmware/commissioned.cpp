@@ -3,6 +3,7 @@
 #include "settings.h"
 #include "webpages.h"
 #include "Arduino.h"
+#include "Ticker.h"
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <ESPAsyncTCP.h>
@@ -19,6 +20,18 @@ static AsyncWebServer server(80);
 static bool button_pressed;
 static unsigned long button_pressed_start;
 
+#define SEND_ALIVE_PERIOD           (30000)     /* in milliseconds */
+
+#define SEND_ALIVE_EV               (1)
+
+static Ticker send_alive_ticker;
+static uint32_t events;
+
+/* @todo For now, let's use a fixed IP address for the base station */
+static IPAddress base_station_addr(192, 168, 1, 4);
+#define BASE_STATION_PORT           (32421)
+
+static uint8_t heater_state;
 
 static void wifi_connected(const WiFiEventStationModeConnected& event)
 {
@@ -30,6 +43,11 @@ static void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
 {
     Serial.println("Disonnected from WiFi");
     connected = false;
+}
+
+static void send_alive_callback(void)
+{
+    events |= SEND_ALIVE_EV;
 }
 
 void setup_commissioned()
@@ -71,6 +89,8 @@ void setup_commissioned()
         }
     );
     server.begin();
+
+    send_alive_ticker.attach_ms(SEND_ALIVE_PERIOD, send_alive_callback);
 }
 
 void loop_commissioned()
@@ -88,7 +108,22 @@ void loop_commissioned()
         button_pressed = false;
     }
 
-    if (connected) {
-        /* @todo Send ALIVE message to base station */
+    if (connected && (events & SEND_ALIVE_EV)) {
+        events &= ~SEND_ALIVE_EV;
+
+        WiFiClient client;
+        if (client.connect(base_station_addr, BASE_STATION_PORT)) {
+            uint8_t message[64];
+
+            Serial.println("Send alive message");
+
+            /* Send alive */
+            message[0] = 0;
+            message[1] = 0;
+            memset(&message[2], 0xFF, sizeof(message) - 2);
+            client.write(message, sizeof(message));
+
+            /* @todo Receive heater state */
+        }
     }
 }
