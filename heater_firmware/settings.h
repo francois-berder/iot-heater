@@ -9,6 +9,11 @@ struct __attribute__((packed)) settings_t {
     char name[32];
     char ssid[64];
     char password[64];
+    union {
+        /* Reserve some bytes for future usage */
+
+        char reserved[32];
+    };
     uint32_t magic1;
 };
 
