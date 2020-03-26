@@ -1,5 +1,6 @@
 #include "board.h"
 #include "commissioned.h"
+#include "heater.h"
 #include "settings.h"
 #include "webpages.h"
 #include "Arduino.h"
@@ -50,6 +51,32 @@ static void send_alive_callback(void)
     events |= SEND_ALIVE_EV;
 }
 
+static void apply_heater_state(void)
+{
+    switch (heater_state) {
+    case HEATER_DEFROST:
+        Serial.println("Heater in defrost mode");
+        digitalWrite(POSITIVE_OUTPUT_PIN, 0);
+        digitalWrite(NEGATIVE_OUTPUT_PIN, 1);
+        break;
+    case HEATER_ECO:
+        Serial.println("Heater in eco mode");
+        digitalWrite(POSITIVE_OUTPUT_PIN, 1);
+        digitalWrite(NEGATIVE_OUTPUT_PIN, 1);
+        break;
+    case HEATER_COMFORT:
+        Serial.println("Heater in comfort mode");
+        digitalWrite(POSITIVE_OUTPUT_PIN, 0);
+        digitalWrite(NEGATIVE_OUTPUT_PIN, 0);
+        break;
+    default:
+        Serial.println("Turning heater off");
+        digitalWrite(POSITIVE_OUTPUT_PIN, 1);
+        digitalWrite(NEGATIVE_OUTPUT_PIN, 0);
+        break;
+    }
+}
+
 void setup_commissioned()
 {
     pinMode(LED1_PIN, OUTPUT);
@@ -62,6 +89,15 @@ void setup_commissioned()
 
     pinMode(POSITIVE_OUTPUT_PIN, OUTPUT);
     pinMode(NEGATIVE_OUTPUT_PIN, OUTPUT);
+
+    /*
+     * Turn off heater. This is the safest option as
+     * we do not know how long we stayed off
+     * and whether the base station is up and running. If it is,
+     * we will soon get the heater state.
+     */
+    heater_state = HEATER_OFF;
+    apply_heater_state();
 
     char ssid[64];
     settings_get_ssid(ssid);

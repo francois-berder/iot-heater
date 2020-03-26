@@ -7,6 +7,7 @@ TARGET := heater_firmware.bin
 
 SRCS := board.h \
 		commissioned.cpp commissioned.h \
+		heater.h \
 		heater_firmware.ino \
 		settings.cpp settings.h \
 		uncomissioned.cpp uncommissioned.h \
