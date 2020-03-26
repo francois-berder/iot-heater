@@ -18,6 +18,7 @@ static WiFiEventHandler wifi_disconnected_handler;
 static bool connected;
 
 static AsyncWebServer server(80);
+static char webpage_buffer[512];
 static bool button_pressed;
 static unsigned long button_pressed_start;
 
@@ -123,7 +124,21 @@ void setup_commissioned()
 
     /* Spawn web server */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-            request->send_P(200, "text/html", commissioned_index_html);
+        switch (heater_state) {
+        case HEATER_DEFROST:
+            sprintf(webpage_buffer, commissioned_index_html, "DEFROST");
+            break;
+        case HEATER_ECO:
+            sprintf(webpage_buffer, commissioned_index_html, "ECO");
+            break;
+        case HEATER_COMFORT:
+            sprintf(webpage_buffer, commissioned_index_html, "COMFORT");
+            break;
+        default:
+            sprintf(webpage_buffer, commissioned_index_html, "OFF");
+            break;
+        }
+            request->send_P(200, "text/html", webpage_buffer);
         }
     );
     server.begin();

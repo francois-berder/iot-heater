@@ -33,6 +33,7 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
 </head>
 <body>
   <h2>Heater</h2>
+  Heater state: %s
 </body>
 </html>
 )rawliteral";
