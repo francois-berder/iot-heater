@@ -31,6 +31,8 @@ static uint32_t events;
 /* @todo For now, let's use a fixed IP address for the base station */
 static IPAddress base_station_addr(192, 168, 1, 4);
 #define BASE_STATION_PORT           (32421)
+static unsigned int base_station_failure;
+#define MAX_BASE_STATION_FAILURE    (15)
 
 static uint8_t heater_state;
 
@@ -158,8 +160,23 @@ void loop_commissioned()
             message[1] = 0;
             memset(&message[2], 0xFF, sizeof(message) - 2);
             client.write(message, sizeof(message));
+            base_station_failure = 0;
 
             /* @todo Receive heater state */
+        } else {
+            if (base_station_failure < MAX_BASE_STATION_FAILURE)
+                base_station_failure++;
+
+            if (base_station_failure == MAX_BASE_STATION_FAILURE) {
+                Serial.println("Cannot send ALIVE to base station");
+
+                /*
+                 * It seems that the base station is down. Turn off
+                 * the heater.
+                 */
+                heater_state = HEATER_OFF;
+                apply_heater_state();
+            }
         }
     }
 }
