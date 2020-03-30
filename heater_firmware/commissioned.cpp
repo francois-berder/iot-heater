@@ -12,6 +12,7 @@
 
 #define BUTTON_PRESS_TIMEOUT  (10000)    /* Timeout in milliseconds */
 #define WIFI_JOIN_TIMEOUT     (15000)    /* Timeout in milliseconds */
+#define HEATER_STATE_TIMEOUT  (1000)
 
 static WiFiEventHandler wifi_connected_handler;
 static WiFiEventHandler wifi_disconnected_handler;
@@ -31,11 +32,16 @@ static uint32_t events;
 
 /* @todo For now, let's use a fixed IP address for the base station */
 static IPAddress base_station_addr(192, 168, 1, 4);
-#define BASE_STATION_PORT           (32421)
+#define BASE_STATION_PORT           (32322)
 static unsigned int base_station_failure;
 #define MAX_BASE_STATION_FAILURE    (15)
 
 static uint8_t heater_state;
+
+enum message_type_t {
+    MESSAGE_ALIVE,
+    MESSAGE_HEATER_STATE,
+};
 
 static void wifi_connected(const WiFiEventStationModeConnected& event)
 {
@@ -171,13 +177,30 @@ void loop_commissioned()
             Serial.println("Send alive message");
 
             /* Send alive */
-            message[0] = 0;
-            message[1] = 0;
+            message[0] = MESSAGE_ALIVE;
+            message[1] = MESSAGE_ALIVE >> 8;
             memset(&message[2], 0xFF, sizeof(message) - 2);
             client.write(message, sizeof(message));
             base_station_failure = 0;
 
-            /* @todo Receive heater state */
+            unsigned long start = millis();
+            while (millis() - start < HEATER_STATE_TIMEOUT) {
+                if (client.available() >= 64)
+                    break;
+            }
+            if (millis() - start > HEATER_STATE_TIMEOUT) {
+                Serial.println("Timeout receiving heater state");
+            } else {
+                client.read(message, sizeof(message));
+                uint16_t type;
+                type = (message[1] << 8) | message[0];
+
+                if (type == MESSAGE_HEATER_STATE) {
+                    heater_state = message[2];
+                    apply_heater_state();
+                }
+            }
+
         } else {
             if (base_station_failure < MAX_BASE_STATION_FAILURE)
                 base_station_failure++;
@@ -193,5 +216,7 @@ void loop_commissioned()
                 apply_heater_state();
             }
         }
+
+        client.stop();
     }
 }
