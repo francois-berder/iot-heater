@@ -105,20 +105,16 @@ void HomeGateway::handleConnections()
             if (!(fds[i].revents & POLLIN))
                 continue;
 
-            size_t n;
-            if (ioctl(fds[i].fd, FIONREAD, &n) < 0)
-                continue;
-
-            for (auto &conn : m_connections) {
-                if (conn.fd != fds[i].fd)
+            for (auto itor = m_connections.begin(); itor != m_connections.end(); ++itor) {
+                if (itor->fd != fds[i].fd)
                     continue;
-
-                while (n > MESSAGE_SIZE) {
-                    uint8_t data[MESSAGE_SIZE];
-                    if (read(fds[i].fd, data, sizeof(data)) != sizeof(data))
-                        break;
-                    parseMessage(conn, data);
-                    n -= MESSAGE_SIZE;
+                uint8_t data[MESSAGE_SIZE];
+                int ret = read(fds[i].fd, data, sizeof(data));
+                if (ret == 0) {
+                    close(fds[i].fd);
+                    m_connections.erase(itor);
+                } else if (ret == sizeof(data)) {
+                    parseMessage(*itor, data);
                 }
                 break;
             }
