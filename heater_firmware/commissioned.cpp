@@ -30,8 +30,7 @@ static unsigned long button_pressed_start;
 static Ticker send_alive_ticker;
 static uint32_t events;
 
-/* @todo For now, let's use a fixed IP address for the base station */
-static IPAddress base_station_addr(192, 168, 1, 4);
+#define base_station_hostname       "homegateway.lan"
 #define BASE_STATION_PORT           (32322)
 static unsigned int base_station_failure;
 #define MAX_BASE_STATION_FAILURE    (15)
@@ -172,7 +171,7 @@ void loop_commissioned()
         events &= ~SEND_ALIVE_EV;
 
         WiFiClient client;
-        if (client.connect(base_station_addr, BASE_STATION_PORT)) {
+        if (client.connect(base_station_hostname, BASE_STATION_PORT)) {
             uint8_t message[64];
 
             Serial.println("Send alive message");
