@@ -100,10 +100,17 @@ void HomeGateway::handleConnections()
     }
 
     int ret = poll(fds, nfds, 0);
-    if (ret > 0) {
-        for (int i = 0; i < nfds; ++i) {
-            if (!(fds[i].revents & POLLIN))
-                continue;
+    if (ret <= 0) {
+        delete[] fds;
+        return;
+    }
+
+    for (int i = 0; i < nfds; ++i) {
+        if (!(fds[i].revents & POLLIN))
+            continue;
+
+        {
+            std::lock_guard<std::mutex> guard(m_connections_mutex);
 
             for (auto itor = m_connections.begin(); itor != m_connections.end(); ++itor) {
                 if (itor->fd != fds[i].fd)
