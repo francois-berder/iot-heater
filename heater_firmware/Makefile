@@ -13,11 +13,15 @@ SRCS := board.h \
 		uncomissioned.cpp uncommissioned.h \
 		webpages.cpp webpages.h
 
+GIT_HASH := $(shell git rev-parse HEAD | head -c 12)$(shell git diff --quiet || echo '-dirty')
+BUILD_TIME := $(shell date +%F-%T)
+CFLAGS += -DGIT_HASH=$(GIT_HASH) -DBUILD_TIME=$(BUILD_TIME)
+
 .PHONY: all
 all: $(BINDIR)/$(TARGET)
 
 $(BINDIR)/$(TARGET): $(SRCS) | $(BINDIR)
-	arduino-cli compile -b $(BOARD_FQN) --build-path $(CURDIR)/build --build-cache-path $(CURDIR)/.cache -o $@
+	arduino-cli compile -b $(BOARD_FQN) --build-properties compiler.cpp.extra_flags="$(CFLAGS)" --build-path $(CURDIR)/build --build-cache-path $(CURDIR)/.cache -o $@
 
 $(SRCS):
 
@@ -34,5 +38,5 @@ term: upload
 
 .PHONY: distclean
 distclean:
-	rm -rf build .cache
+	rm -rf build .cache $(BINDIR)
 	rm -f *.bin *.elf
