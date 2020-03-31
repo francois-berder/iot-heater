@@ -31,7 +31,7 @@ static unsigned long button_pressed_start;
 static Ticker send_alive_ticker;
 static uint32_t events;
 
-#define base_station_hostname       "homegateway.lan"
+#define base_station_hostname       "homegateway.local"
 #define BASE_STATION_PORT           (32322)
 static unsigned int base_station_failure;
 #define MAX_BASE_STATION_FAILURE    (15)
