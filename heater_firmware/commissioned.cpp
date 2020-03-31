@@ -126,6 +126,9 @@ void setup_commissioned()
     wifi_disconnected_handler = WiFi.onStationModeDisconnected(wifi_disconnected);
     wifi_got_ip_handler = WiFi.onStationModeGotIP(wifi_got_ip);
     WiFi.mode(WIFI_STA);
+    char name[32];
+    settings_get_name(name);
+    WiFi.hostname(name);
     WiFi.begin(ssid, password);
     Serial.print("Connecting to Wifi: ");
     Serial.println(ssid);
