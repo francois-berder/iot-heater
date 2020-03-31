@@ -16,6 +16,7 @@
 
 static WiFiEventHandler wifi_connected_handler;
 static WiFiEventHandler wifi_disconnected_handler;
+static WiFiEventHandler wifi_got_ip_handler;
 static bool connected;
 
 static AsyncWebServer server(80);
@@ -53,6 +54,15 @@ static void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
 {
     Serial.println("Disonnected from WiFi");
     connected = false;
+}
+
+static void wifi_got_ip(const WiFiEventStationModeGotIP& event)
+{
+    char name[32];
+    settings_get_name(name);
+
+    if (!MDNS.begin(name))
+        Serial.println("Cannot start MDNS server");
 }
 
 static void send_alive_callback(void)
@@ -114,6 +124,8 @@ void setup_commissioned()
     settings_get_password(password);
     wifi_connected_handler = WiFi.onStationModeConnected(wifi_connected);
     wifi_disconnected_handler = WiFi.onStationModeDisconnected(wifi_disconnected);
+    wifi_got_ip_handler = WiFi.onStationModeGotIP(wifi_got_ip);
+    WiFi.mode(WIFI_STA);
     WiFi.begin(ssid, password);
     Serial.print("Connecting to Wifi: ");
     Serial.println(ssid);
@@ -122,11 +134,6 @@ void setup_commissioned()
         Serial.println("Connected to WiFi");
         connected = true;
     }
-
-    /* Start mDNS server */
-    char name[32];
-    settings_get_name(name);
-    MDNS.begin(name);
 
     /* Spawn web server */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -154,6 +161,8 @@ void setup_commissioned()
 
 void loop_commissioned()
 {
+    MDNS.update();
+
     /* Clear configuration if button is pressed for a while */
     if (digitalRead(BUTTON_PIN) == 0) {
         if (!button_pressed) {
