@@ -1,5 +1,5 @@
-#ifndef HOME_GATEWAY_HPP
-#define HOME_GATEWAY_HPP
+#ifndef BASE_STATION_HPP
+#define BASE_STATION_HPP
 
 #include "timer.hpp"
 #include <cstdint>
@@ -22,10 +22,10 @@ enum HeaterState {
     HEATER_COMFORT,
 };
 
-class HomeGateway {
+class BaseStation {
 public:
-    HomeGateway();
-    ~HomeGateway();
+    BaseStation();
+    ~BaseStation();
 
     void process();
 

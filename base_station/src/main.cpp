@@ -1,6 +1,6 @@
 #include <functional>
 #include <sstream>
-#include "home_gateway.hpp"
+#include "base_station.hpp"
 #include "logger.hpp"
 #include "device_server.hpp"
 #include "sms_server.hpp"
@@ -60,15 +60,15 @@ int main(int argc, char **argv)
         Logger::info(ss.str());
     }
 
-    HomeGateway device_manager;
+    BaseStation base_station;
     DeviceServer device_server(device_server_port,
-                               std::bind(&HomeGateway::handleNewDevice, &device_manager, std::placeholders::_1));
+                               std::bind(&BaseStation::handleNewDevice, &base_station, std::placeholders::_1));
     device_server.start();
 
-    SMSServer sms_server(std::bind(&HomeGateway::handleSMSCommand, &device_manager, std::placeholders::_1, std::placeholders::_2));
+    SMSServer sms_server(std::bind(&BaseStation::handleSMSCommand, &base_station, std::placeholders::_1, std::placeholders::_2));
     sms_server.start();
     while (true) {
-        device_manager.process();
+        base_station.process();
         wait_ms(50);
     }
 

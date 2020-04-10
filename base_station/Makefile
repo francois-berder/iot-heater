@@ -18,7 +18,7 @@ LDFLAGS += -ggdb -g3 -gz
 endif
 
 SRCS := src/device_server.cpp \
-		src/home_gateway.cpp \
+		src/base_station.cpp \
 		src/logger.cpp \
 		src/main.cpp \
 		src/sms_sender.cpp \
@@ -29,7 +29,7 @@ DEPS := $(SRCS:%.cpp=$(DEPDIR)/%.d)
 
 LDFLAGS += -lpthread
 
-TARGET := homegateway-$(BUILDTYPE)
+TARGET := base_station-$(BUILDTYPE)
 
 # Build information
 GIT_HASH := $(shell git rev-parse HEAD | head -c 12)$(shell git diff --quiet || echo '-dirty')

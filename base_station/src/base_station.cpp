@@ -1,4 +1,4 @@
-#include "home_gateway.hpp"
+#include "base_station.hpp"
 #include "logger.hpp"
 #include "sms_sender.hpp"
 #include <algorithm>
@@ -22,14 +22,14 @@
 
 #define MESSAGE_SIZE    (64)
 
-#define STATE_FILE_PATH     "/var/lib/home_gateway.state"
+#define STATE_FILE_PATH     "/var/lib/base_station.state"
 
 enum MessageType {
     ALIVE,
     HEATER,
 };
 
-HomeGateway::HomeGateway():
+BaseStation::BaseStation():
 m_connections(),
 m_connections_mutex(),
 m_commands(),
@@ -41,14 +41,14 @@ m_heater_state(HEATER_OFF)
         saveState();
 }
 
-HomeGateway::~HomeGateway()
+BaseStation::~BaseStation()
 {
     /* Close all file descriptors */
     for (auto& conn : m_connections)
         close(conn.fd);
 }
 
-void HomeGateway::process()
+void BaseStation::process()
 {
     handleConnections();
     handleTimers();
@@ -59,7 +59,7 @@ void HomeGateway::process()
  * Beware this function is called from device_server context !
  * That is why we need a mutex around the use of m_devices.
  */
-void HomeGateway::handleNewDevice(int fd)
+void BaseStation::handleNewDevice(int fd)
 {
     std::lock_guard<std::mutex> guard(m_connections_mutex);
     DeviceConnection conn;
@@ -72,13 +72,13 @@ void HomeGateway::handleNewDevice(int fd)
 /*
  * Beware this function is called from sms_server context !
  */
-void HomeGateway::handleSMSCommand(const std::string &from, const std::string &content)
+void BaseStation::handleSMSCommand(const std::string &from, const std::string &content)
 {
     std::lock_guard<std::mutex> guard(m_commands_mutex);
     m_commands.emplace(from, content);
 }
 
-void HomeGateway::handleConnections()
+void BaseStation::handleConnections()
 {
     struct pollfd *fds;
     int nfds;
@@ -131,7 +131,7 @@ void HomeGateway::handleConnections()
     delete[] fds;
 }
 
-void HomeGateway::handleTimers()
+void BaseStation::handleTimers()
 {
     struct pollfd fds[1];
 
@@ -155,7 +155,7 @@ void HomeGateway::handleTimers()
     }
 }
 
-void HomeGateway::parseMessage(DeviceConnection &conn, uint8_t *data)
+void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
 {
     uint16_t type;
     memcpy(&type, data, sizeof(type));
@@ -171,7 +171,7 @@ void HomeGateway::parseMessage(DeviceConnection &conn, uint8_t *data)
     }
 }
 
-void HomeGateway::parseCommands()
+void BaseStation::parseCommands()
 {
     while (!m_commands.empty()) {
         std::string from;
@@ -238,16 +238,16 @@ void HomeGateway::parseCommands()
     }
 }
 
-void HomeGateway::sendVersion(const std::string &to)
+void BaseStation::sendVersion(const std::string &to)
 {
     std::stringstream content;
 
-    content << "homegateway-" << GIT_HASH << '.' << BUILD_TIME;
+    content << "base_station-" << GIT_HASH << '.' << BUILD_TIME;
 
     SMSSender::instance().sendSMS(to, content.str());
 }
 
-void HomeGateway::checkStaleConnections()
+void BaseStation::checkStaleConnections()
 {
     std::lock_guard<std::mutex> guard(m_connections_mutex);
     std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
@@ -263,14 +263,14 @@ void HomeGateway::checkStaleConnections()
     }
 }
 
-void HomeGateway::broadcastHeaterState()
+void BaseStation::broadcastHeaterState()
 {
     std::lock_guard<std::mutex> guard(m_connections_mutex);
     for (auto &conn : m_connections)
         sendHeaterState(conn.fd);
 }
 
-void HomeGateway::sendHeaterState(int fd)
+void BaseStation::sendHeaterState(int fd)
 {
     uint8_t data[MESSAGE_SIZE];
     memset(data, 0xFF, sizeof(data));
@@ -287,7 +287,7 @@ void HomeGateway::sendHeaterState(int fd)
     }
 }
 
-bool HomeGateway::loadState()
+bool BaseStation::loadState()
 {
     std::ifstream file(STATE_FILE_PATH);
     if (!file) {
@@ -337,7 +337,7 @@ bool HomeGateway::loadState()
     return true;
 }
 
-void HomeGateway::saveState()
+void BaseStation::saveState()
 {
     std::ofstream file(STATE_FILE_PATH);
     if (!file) {
