@@ -234,6 +234,19 @@ void BaseStation::parseCommands()
             default: val = "HEATER UNKNOWN"; break;
             }
             SMSSender::instance().sendSMS(from, val);
+        } else if (content == "GET IP") {
+            std::array<char, 128> buffer;
+            std::string result;
+            std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("dig +short myip.opendns.com @resolver1.opendns.com", "r"), pclose);
+            if (!pipe) {
+                SMSSender::instance().sendSMS(from, "Fail to execute dig");
+            } else {
+                while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
+                    result += buffer.data();
+                if (result.size() > 64)
+                    result.resize(64);
+                SMSSender::instance().sendSMS(from, result);
+            }
         }
     }
 }
