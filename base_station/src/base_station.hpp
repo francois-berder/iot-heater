@@ -3,6 +3,7 @@
 
 #include "timer.hpp"
 #include <cstdint>
+#include <deque>
 #include <list>
 #include <map>
 #include <memory>
@@ -42,6 +43,7 @@ private:
     void checkStaleConnections();
     void broadcastHeaterState();
     void sendHeaterState(int fd);
+    void setHeaterState(enum HeaterState heater_state);
 
     bool loadState();
     void saveState();
@@ -54,6 +56,7 @@ private:
 
     Timer m_stale_timer;
     HeaterState m_heater_state;
+    std::deque<std::pair<std::chrono::system_clock::time_point,HeaterState>> m_heater_state_history;
 };
 
 #endif

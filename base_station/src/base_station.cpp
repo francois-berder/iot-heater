@@ -35,7 +35,8 @@ m_connections_mutex(),
 m_commands(),
 m_commands_mutex(),
 m_stale_timer(),
-m_heater_state(HEATER_OFF)
+m_heater_state(HEATER_OFF),
+m_heater_state_history()
 {
     if (!loadState())
         saveState();
@@ -197,33 +198,13 @@ void BaseStation::parseCommands()
         else if (content == "VERSION")
             sendVersion(from);
         else if (content == "HEATER OFF") {
-            if (m_heater_state != HEATER_OFF) {
-                Logger::debug("Changing heater state to OFF");
-                m_heater_state = HEATER_OFF;
-                broadcastHeaterState();
-                saveState();
-            }
+            setHeaterState(HEATER_OFF);
         } else if (content == "HEATER ECO") {
-            if (m_heater_state != HEATER_ECO) {
-                Logger::debug("Changing heater state to ECO");
-                m_heater_state = HEATER_ECO;
-                broadcastHeaterState();
-                saveState();
-            }
+            setHeaterState(HEATER_ECO);
         } else if (content == "HEATER DEFROST") {
-            if (m_heater_state != HEATER_DEFROST) {
-                Logger::debug("Changing heater state to DEFROST");
-                m_heater_state = HEATER_DEFROST;
-                broadcastHeaterState();
-                saveState();
-            }
+            setHeaterState(HEATER_DEFROST);
         } else if (content == "HEATER COMFORT") {
-            if (m_heater_state != HEATER_COMFORT) {
-                Logger::debug("Changing heater state to COMFORT");
-                m_heater_state = HEATER_COMFORT;
-                broadcastHeaterState();
-                saveState();
-            }
+            setHeaterState(HEATER_COMFORT);
         } else if (content == "GET HEATER") {
             std::string val;
             switch (m_heater_state) {
@@ -247,6 +228,33 @@ void BaseStation::parseCommands()
                     result.resize(64);
                 SMSSender::instance().sendSMS(from, result);
             }
+        } else if (content == "GET HEATER HISTORY") {
+            std::stringstream ss;
+            ss << "Last commands:\n";
+            for (auto &h : m_heater_state_history) {
+                std::time_t now_c = std::chrono::system_clock::to_time_t(h.first);
+                tm *ltm = localtime(&now_c);
+                std::stringstream date;
+                date << ltm->tm_mday
+                    << "/"
+                    << 1 + ltm->tm_mon
+                    << "/"
+                    << 1900 + ltm->tm_year
+                    << " "
+                    << 1 + ltm->tm_hour
+                    << ":"
+                    << 1 + ltm->tm_min
+                    << ":"
+                    << 1 + ltm->tm_sec;
+                switch (h.second) {
+                case HEATER_OFF: ss << " OFF\n"; break;
+                case HEATER_DEFROST: ss << " DEFROST\n"; break;
+                case HEATER_ECO: ss << " ECO\n"; break;
+                case HEATER_COMFORT: ss << " COMFORT\n"; break;
+                }
+            }
+
+            SMSSender::instance().sendSMS(from, ss.str());
         }
     }
 }
@@ -298,6 +306,35 @@ void BaseStation::sendHeaterState(int fd)
             break;
         sent += ret;
     }
+}
+
+void BaseStation::setHeaterState(enum HeaterState heater_state)
+{
+    if (m_heater_state == heater_state)
+        return;
+    m_heater_state = heater_state;
+
+    switch (m_heater_state) {
+    case HEATER_OFF:
+        Logger::debug("Changing heater state to OFF");
+        break;
+    case HEATER_DEFROST:
+        Logger::debug("Changing heater state to DEFROST");
+        break;
+    case HEATER_ECO:
+        Logger::debug("Changing heater state to ECO");
+        break;
+    case HEATER_COMFORT:
+        Logger::debug("Changing heater state to COMFORT");
+        break;
+    }
+    m_heater_state_history.push_front(std::pair<std::chrono::system_clock::time_point,HeaterState>(std::chrono::system_clock::now(), m_heater_state));
+
+    /* Limit history to last 16 items */
+    m_heater_state_history.resize(16);
+
+    broadcastHeaterState();
+    saveState();
 }
 
 bool BaseStation::loadState()
