@@ -40,6 +40,8 @@ void setup_uncommissioned(void)
 {
     pinMode(LED1_PIN, OUTPUT);
     pinMode(LED2_PIN, OUTPUT);
+    digitalWrite(LED1_PIN, 1);
+    digitalWrite(LED2_PIN, 0);
     leds_ticker.attach_ms(SLOW_BLINK_PERIOD, toggle_leds);
     pinMode(BUTTON_PIN, INPUT_PULLUP);
 
