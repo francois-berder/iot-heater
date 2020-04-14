@@ -300,6 +300,10 @@ void BaseStation::parseCommands()
                 if (tokens.size() == 3)
                     m_phone_whitelist.erase(tokens[2]);
             }
+        } else {
+            std::stringstream ss;
+            ss << "Received invalid message from: " << from;
+            Logger::warn(ss.str());
         }
     }
 }
