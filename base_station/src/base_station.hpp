@@ -9,6 +9,7 @@
 #include <memory>
 #include <mutex>
 #include <queue>
+#include <set>
 #include <string>
 
 struct DeviceConnection {
@@ -57,6 +58,9 @@ private:
     Timer m_stale_timer;
     HeaterState m_heater_state;
     std::deque<std::pair<std::chrono::system_clock::time_point,HeaterState>> m_heater_state_history;
+
+    bool locked;
+    std::set<std::string> m_phone_whitelist;
 };
 
 #endif

@@ -3,6 +3,7 @@
 #include "sms_sender.hpp"
 #include <algorithm>
 #include <fstream>
+#include <iterator>
 #include <list>
 #include <memory>
 #include <mutex>
@@ -11,6 +12,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <unistd.h>
+#include <vector>
 
 #ifndef GIT_HASH
 #define GIT_HASH        "development"
@@ -18,6 +20,10 @@
 
 #ifndef BUILD_TIME
 #define BUILD_TIME      "unknown-time"
+#endif
+
+#ifndef BASE_STATION_PIN
+#define BASE_STATION_PIN    "1234"
 #endif
 
 #define MESSAGE_SIZE    (64)
@@ -181,6 +187,14 @@ void BaseStation::parseCommands()
         std::tie(from, content) = m_commands.front();
         m_commands.pop();
 
+        /* Check phone belongs to whitelist */
+        if (locked && !m_phone_whitelist.empty() && m_phone_whitelist.find(from) == m_phone_whitelist.end()) {
+            std::stringstream ss;
+            ss << "Received SMS from phone number \"" << from << "\" not in whitelist";
+            Logger::warn(ss.str());
+            return;
+        }
+
         /* Trim content */
         content.erase(content.begin(), std::find_if(content.begin(), content.end(),
             std::not1(std::ptr_fun<int, int>(std::isspace))));
@@ -255,6 +269,37 @@ void BaseStation::parseCommands()
             }
 
             SMSSender::instance().sendSMS(from, ss.str());
+        } else if (content == "LOCK") {
+            if (!locked)
+                SMSSender::instance().sendSMS(from, "LOCKED");
+            locked = true;
+        } else if (content.rfind("UNLOCK ", 0) == 0) {
+            std::istringstream iss(content);
+            std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
+                                            std::istream_iterator<std::string>{}};
+            if (tokens.size() >= 2) {
+                if (tokens[1] == BASE_STATION_PIN) {
+                    if (locked)
+                        SMSSender::instance().sendSMS(from, "UNLOCKED");
+                    locked = false;
+                }
+            }
+        } else if (content.rfind("ADD PHONE ", 0) == 0) {
+            if (!locked) {
+                std::istringstream iss(content);
+                std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
+                                                std::istream_iterator<std::string>{}};
+                if (tokens.size() == 3)
+                    m_phone_whitelist.insert(tokens[2]);
+            }
+        } else if (content.rfind("REMOVE PHONE ", 0) == 0) {
+            if (!locked) {
+                std::istringstream iss(content);
+                std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
+                                                std::istream_iterator<std::string>{}};
+                if (tokens.size() == 3)
+                    m_phone_whitelist.erase(tokens[2]);
+            }
         }
     }
 }
