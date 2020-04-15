@@ -213,12 +213,16 @@ void BaseStation::parseCommands()
             sendVersion(from);
         else if (content == "HEATER OFF") {
             setHeaterState(HEATER_OFF);
+            SMSSender::instance().sendSMS(from, "HEATER OFF");
         } else if (content == "HEATER ECO") {
             setHeaterState(HEATER_ECO);
+            SMSSender::instance().sendSMS(from, "HEATER ECO");
         } else if (content == "HEATER DEFROST") {
             setHeaterState(HEATER_DEFROST);
+            SMSSender::instance().sendSMS(from, "HEATER DEFROST");
         } else if (content == "HEATER COMFORT") {
             setHeaterState(HEATER_COMFORT);
+            SMSSender::instance().sendSMS(from, "HEATER COMFORT");
         } else if (content == "GET HEATER") {
             std::string val;
             switch (m_heater_state) {
