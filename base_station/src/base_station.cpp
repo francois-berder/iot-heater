@@ -30,6 +30,24 @@
 
 #define STATE_FILE_PATH     "/var/lib/base_station.state"
 
+namespace {
+
+/* Check that phone numbers follow this pattern: + followed by 10 or 11 numbers */
+bool check_phone_number_format(const std::string &no)
+{
+    if (no.length() < 11 || no.length() > 12)
+        return false;
+    if (no[0] != '+')
+        return false;
+    for (unsigned int i = 1; i < no.length(); ++i) {
+        if (no[i] < '0' || no[i] > '9')
+            return false;
+    }
+
+    return true;
+}
+}
+
 enum MessageType {
     ALIVE,
     HEATER,
@@ -293,16 +311,31 @@ void BaseStation::parseCommands()
                 std::istringstream iss(content);
                 std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
                                                 std::istream_iterator<std::string>{}};
-                if (tokens.size() == 3)
-                    m_phone_whitelist.insert(tokens[2]);
+                if (tokens.size() == 3) {
+                    std::string phone_number = tokens[2];
+                    if (check_phone_number_format(phone_number)) {
+                        m_phone_whitelist.insert(phone_number);
+                        std::stringstream ss;
+                        ss << "Phone number \"" << phone_number << "\" added to whitelist";
+                        SMSSender::instance().sendSMS(from, ss.str());
+                    } else {
+                        std::stringstream ss;
+                        ss << "Phone number \"" << phone_number << "\" is not valid. Phone numbers must follow this format: +(country code)(9-10 digits). Example: +3310203040506";
+                        SMSSender::instance().sendSMS(from, ss.str());
+                    }
+                }
             }
         } else if (content.rfind("REMOVE PHONE ", 0) == 0) {
             if (!locked) {
                 std::istringstream iss(content);
                 std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
                                                 std::istream_iterator<std::string>{}};
-                if (tokens.size() == 3)
+                if (tokens.size() == 3) {
                     m_phone_whitelist.erase(tokens[2]);
+                    std::stringstream ss;
+                    ss << "Phone number \"" << tokens[2] << "\" removed from whitelist";
+                    SMSSender::instance().sendSMS(from, ss.str());
+                }
             }
         } else {
             std::stringstream ss;
