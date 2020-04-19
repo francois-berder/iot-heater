@@ -31,6 +31,16 @@ static unsigned long button_pressed_start;
 static Ticker send_alive_ticker;
 static uint32_t events;
 
+#define BLINK_PERIOD           (500)
+static Ticker leds_ticker;
+
+enum led_state_t {
+    DISCONNECTED_FROM_WIFI,
+    DISCONNECTED_FROM_BASE_STATION,
+    CONNECTED_TO_BASE_STATION,
+};
+enum led_state_t led_state;
+
 #define base_station_hostname       "homegateway.local"
 #define BASE_STATION_PORT           (32322)
 static unsigned int base_station_failure;
@@ -43,6 +53,33 @@ enum message_type_t {
     MESSAGE_HEATER_STATE,
 };
 
+static void update_leds()
+{
+    static int counter = 0;
+    ++counter;
+    switch (led_state) {
+    case DISCONNECTED_FROM_WIFI:
+        digitalWrite(LED1_PIN, !digitalRead(LED1_PIN));
+        digitalWrite(LED2_PIN, 0);
+        counter = 0;
+        break;
+    case DISCONNECTED_FROM_BASE_STATION:
+        digitalWrite(LED1_PIN, 0);
+        digitalWrite(LED2_PIN, !digitalRead(LED2_PIN));
+        counter = 0;
+        break;
+    case CONNECTED_TO_BASE_STATION:
+        if (counter == 20) {
+            digitalWrite(LED1_PIN, !digitalRead(LED1_PIN));
+            digitalWrite(LED2_PIN, !digitalRead(LED2_PIN));
+            counter = 0;
+        } else {
+            counter++;
+        }
+        break;
+    };
+}
+
 static void wifi_connected(const WiFiEventStationModeConnected& event)
 {
     Serial.println("Connected to WiFi");
@@ -54,6 +91,7 @@ static void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
 {
     Serial.println("Disonnected from WiFi");
     connected = false;
+    led_state = DISCONNECTED_FROM_WIFI;
 }
 
 static void wifi_got_ip(const WiFiEventStationModeGotIP& event)
@@ -108,6 +146,9 @@ void setup_commissioned()
 
     pinMode(POSITIVE_OUTPUT_PIN, OUTPUT);
     pinMode(NEGATIVE_OUTPUT_PIN, OUTPUT);
+
+    led_state = DISCONNECTED_FROM_WIFI;
+    leds_ticker.attach_ms(BLINK_PERIOD, update_leds);
 
     /*
      * Turn off heater. This is the safest option as
@@ -211,6 +252,8 @@ void loop_commissioned()
                     heater_state = message[2];
                     apply_heater_state();
                 }
+
+                led_state = CONNECTED_TO_BASE_STATION;
             }
 
         } else {
@@ -226,6 +269,8 @@ void loop_commissioned()
                  */
                 heater_state = HEATER_OFF;
                 apply_heater_state();
+
+                led_state = DISCONNECTED_FROM_BASE_STATION;
             }
         }
 
