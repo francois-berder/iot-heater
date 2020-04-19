@@ -453,6 +453,13 @@ bool BaseStation::loadState()
                 m_heater_state = HEATER_OFF;
                 Logger::err("Invalid value for heater_state key. Setting heater_state to OFF.");
             }
+        } else if (key == "whitelist") {
+            std::istringstream iss(val);
+            std::string item;
+            while (std::getline(iss, item, ',')) {
+                if (check_phone_number_format(item))
+                    m_phone_whitelist.insert(item);
+            }
         } else {
             std::stringstream ss;
             ss << "Invalid key \"" << key << '\"';
@@ -486,6 +493,16 @@ void BaseStation::saveState()
         file << "heater_state=comfort\n";
         break;
     }
+
+    file << "whitelist=";
+    auto itor = m_phone_whitelist.begin();
+    while (itor != m_phone_whitelist.end()) {
+        file << *itor;
+        ++itor;
+        if (itor != m_phone_whitelist.end())
+            file << ',';
+    }
+    file << '\n';
 
     Logger::debug("Saved state to file " STATE_FILE_PATH);
 }
