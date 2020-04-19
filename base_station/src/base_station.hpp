@@ -42,7 +42,6 @@ private:
     void parseCommands();
     void sendVersion(const std::string &to);
     void checkStaleConnections();
-    void broadcastHeaterState();
     void sendHeaterState(int fd);
     void setHeaterState(enum HeaterState heater_state);
 

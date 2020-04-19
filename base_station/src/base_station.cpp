@@ -370,13 +370,6 @@ void BaseStation::checkStaleConnections()
     }
 }
 
-void BaseStation::broadcastHeaterState()
-{
-    std::lock_guard<std::mutex> guard(m_connections_mutex);
-    for (auto &conn : m_connections)
-        sendHeaterState(conn.fd);
-}
-
 void BaseStation::sendHeaterState(int fd)
 {
     uint8_t data[MESSAGE_SIZE];
@@ -419,7 +412,6 @@ void BaseStation::setHeaterState(enum HeaterState heater_state)
     /* Limit history to last 16 items */
     m_heater_state_history.resize(16);
 
-    broadcastHeaterState();
     saveState();
 }
 
