@@ -85,6 +85,7 @@ static void wifi_connected(const WiFiEventStationModeConnected& event)
     Serial.println("Connected to WiFi");
     connected = true;
     events |= SEND_ALIVE_EV;
+    led_state = DISCONNECTED_FROM_BASE_STATION;
 }
 
 static void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
