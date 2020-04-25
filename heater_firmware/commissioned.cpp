@@ -69,12 +69,12 @@ static void update_leds()
         counter = 0;
         break;
     case CONNECTED_TO_BASE_STATION:
-        if (counter == 20) {
-            digitalWrite(LED1_PIN, !digitalRead(LED1_PIN));
-            digitalWrite(LED2_PIN, !digitalRead(LED2_PIN));
+        digitalWrite(LED2_PIN, 0);
+        if (counter >= 20) {
+            digitalWrite(LED1_PIN, 1);
             counter = 0;
         } else {
-            counter++;
+            digitalWrite(LED1_PIN, 0);
         }
         break;
     };
