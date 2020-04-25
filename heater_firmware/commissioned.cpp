@@ -168,6 +168,7 @@ void setup_commissioned()
     wifi_disconnected_handler = WiFi.onStationModeDisconnected(wifi_disconnected);
     wifi_got_ip_handler = WiFi.onStationModeGotIP(wifi_got_ip);
     WiFi.mode(WIFI_STA);
+    wifi_set_sleep_type(LIGHT_SLEEP_T);
     char name[32];
     settings_get_name(name);
     WiFi.hostname(name);
@@ -206,6 +207,8 @@ void setup_commissioned()
 
 void loop_commissioned()
 {
+    delay(200);
+
     MDNS.update();
 
     /* Clear configuration if button is pressed for a while */
