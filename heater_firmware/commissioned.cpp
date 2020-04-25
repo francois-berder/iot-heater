@@ -252,17 +252,22 @@ void loop_commissioned()
                 if (type == MESSAGE_HEATER_STATE) {
                     heater_state = message[2];
                     apply_heater_state();
+                } else {
+                    Serial.print("Received invalid message type ");
+                    Serial.print(type);
+                    Serial.println(" from base station");
                 }
 
                 led_state = CONNECTED_TO_BASE_STATION;
             }
 
         } else {
+            Serial.println("Failed to connect to base station");
             if (base_station_failure < MAX_BASE_STATION_FAILURE)
                 base_station_failure++;
 
             if (base_station_failure == MAX_BASE_STATION_FAILURE) {
-                Serial.println("Cannot send ALIVE to base station");
+                Serial.println("Too many failures while sending ALIVE to base station");
 
                 /*
                  * It seems that the base station is down. Turn off
