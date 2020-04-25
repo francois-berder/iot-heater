@@ -41,7 +41,7 @@ enum led_state_t {
 };
 enum led_state_t led_state;
 
-#define base_station_hostname       "homegateway.local"
+#define base_station_hostname       "basestation.lan"
 #define BASE_STATION_PORT           (32322)
 static unsigned int base_station_failure;
 #define MAX_BASE_STATION_FAILURE    (15)
