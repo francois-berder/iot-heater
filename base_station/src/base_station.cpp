@@ -219,6 +219,9 @@ void BaseStation::parseCommands()
         content.erase(std::find_if(content.rbegin(), content.rend(),
             std::not1(std::ptr_fun<int, int>(std::isspace))).base(), content.end());
 
+        /* Convert all lowercase characters to uppercase */
+        for (auto & c: content) c = toupper(c);
+
         if (content == "PING")
             SMSSender::instance().sendSMS(from, "PONG");
         else if (content == "DEBUG")
