@@ -12,12 +12,8 @@
 #define BUTTON_PRESS_TIMEOUT  (10000)   /* Timeout in milliseconds */
 #define JOIN_NETWORK_TIMEOUT  (10000)   /* Timeout in milliseconds */
 
-#define SLOW_BLINK_PERIOD     (1000) /* In ms */
-#define FAST_BLINK_PERIOD     (100)
-
 #define DNS_PORT              (53)
 
-static Ticker leds_ticker;
 static AsyncWebServer server(80);
 static DNSServer dns_server;
 
@@ -30,19 +26,10 @@ static String wifi_ssid;
 static String wifi_password;
 static unsigned long joining_wifi_network_start;
 
-static void toggle_leds()
-{
-    digitalWrite(LED1_PIN, !digitalRead(LED1_PIN));
-    digitalWrite(LED2_PIN, !digitalRead(LED2_PIN));
-}
-
 void setup_uncommissioned(void)
 {
     pinMode(LED1_PIN, OUTPUT);
-    pinMode(LED2_PIN, OUTPUT);
     digitalWrite(LED1_PIN, 1);
-    digitalWrite(LED2_PIN, 0);
-    leds_ticker.attach_ms(SLOW_BLINK_PERIOD, toggle_leds);
     pinMode(BUTTON_PIN, INPUT_PULLUP);
 
     /* Create Wifi AP */
@@ -108,8 +95,6 @@ void loop_uncommissioned(void)
     }
 
     if (joining_wifi_network) {
-        leds_ticker.detach();
-        leds_ticker.attach_ms(FAST_BLINK_PERIOD, toggle_leds);
         server.end();
         dns_server.stop();
         WiFi.mode(WIFI_STA);

@@ -31,7 +31,7 @@ static unsigned long button_pressed_start;
 static Ticker send_alive_ticker;
 static uint32_t events;
 
-#define BLINK_PERIOD           (500)
+#define BLINK_PERIOD           (500)    /* in milliseconds */
 static Ticker leds_ticker;
 
 enum led_state_t {
@@ -56,21 +56,21 @@ enum message_type_t {
 static void update_leds()
 {
     static int counter = 0;
-    ++counter;
     switch (led_state) {
     case DISCONNECTED_FROM_WIFI:
         digitalWrite(LED1_PIN, !digitalRead(LED1_PIN));
-        digitalWrite(LED2_PIN, 0);
         counter = 0;
         break;
     case DISCONNECTED_FROM_BASE_STATION:
-        digitalWrite(LED1_PIN, 0);
-        digitalWrite(LED2_PIN, !digitalRead(LED2_PIN));
-        counter = 0;
+        if (counter >= 6) {
+            digitalWrite(LED1_PIN, 1);
+            counter = 0;
+        } else {
+            digitalWrite(LED1_PIN, 0);
+        }
         break;
     case CONNECTED_TO_BASE_STATION:
-        digitalWrite(LED2_PIN, 0);
-        if (counter >= 20) {
+        if (counter >= 120) {
             digitalWrite(LED1_PIN, 1);
             counter = 0;
         } else {
@@ -78,6 +78,8 @@ static void update_leds()
         }
         break;
     };
+
+    ++counter;
 }
 
 static void wifi_connected(const WiFiEventStationModeConnected& event)
@@ -138,10 +140,7 @@ static void apply_heater_state(void)
 void setup_commissioned()
 {
     pinMode(LED1_PIN, OUTPUT);
-    pinMode(LED2_PIN, OUTPUT);
-
     digitalWrite(LED1_PIN, 1);
-    digitalWrite(LED2_PIN, 0);
 
     pinMode(BUTTON_PIN, INPUT_PULLUP);
 

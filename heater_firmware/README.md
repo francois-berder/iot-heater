@@ -29,12 +29,11 @@ The firmware opens a serial connection (115200 8N1) over USB which is currently 
 make term
 ```
 
-## LEDs
+## LED
 
-| Status                        | LED                                             |
-| ----------------------------- | ----------------------------------------------- |
-| Not commissioned              | Alternating LED1 and LED2 flashing every second |
-| Commissioning                 | Alternating LED1 and LED2 flashing every 100ms  |
-| Not connected to WiFi         | LED1 flashing every 500ms and LED 2 off         |
-| Not connected to base station | LED1 off and LED2 flashing every 500ms          |
-| All OK                        | LED1 and LED2 flashing every 10 seconds         |
+| Status                        | LED                        |
+| ----------------------------- | -------------------------- |
+| Not commissioned              | LED ON                     |
+| Not connected to WiFi         | LED flash every 500ms      |
+| Not connected to base station | LED flash every 3 seconds  |
+| All OK                        | LED flash every 60 seconds |
