@@ -32,14 +32,12 @@
 
 namespace {
 
-/* Check that phone numbers follow this pattern: + followed by 10 or 11 numbers */
+/* Check that phone numbers consist of 10 to 14 digits */
 bool check_phone_number_format(const std::string &no)
 {
-    if (no.length() < 11 || no.length() > 12)
+    if (no.length() < 10 || no.length() > 14)
         return false;
-    if (no[0] != '+')
-        return false;
-    for (unsigned int i = 1; i < no.length(); ++i) {
+    for (unsigned int i = 0; i < no.length(); ++i) {
         if (no[i] < '0' || no[i] > '9')
             return false;
     }
@@ -295,18 +293,23 @@ void BaseStation::parseCommands()
 
             SMSSender::instance().sendSMS(from, ss.str());
         } else if (content == "LOCK") {
-            if (!locked)
+            if (m_phone_whitelist.find(from) != m_phone_whitelist.end()) {
                 SMSSender::instance().sendSMS(from, "LOCKED");
-            locked = true;
+                locked = true;
+            } else {
+                SMSSender::instance().sendSMS(from, "Cannot lock: phone number is not whitelisted. Use ADD PHONE command.");
+            }
         } else if (content.rfind("UNLOCK ", 0) == 0) {
             std::istringstream iss(content);
             std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
                                             std::istream_iterator<std::string>{}};
+            Logger::debug(tokens[1]);
             if (tokens.size() >= 2) {
                 if (tokens[1] == BASE_STATION_PIN) {
-                    if (locked)
-                        SMSSender::instance().sendSMS(from, "UNLOCKED");
+                    SMSSender::instance().sendSMS(from, "UNLOCKED");
                     locked = false;
+                } else {
+                    SMSSender::instance().sendSMS(from, "Wrong PIN");
                 }
             }
         } else if (content.rfind("ADD PHONE ", 0) == 0) {
@@ -321,9 +324,10 @@ void BaseStation::parseCommands()
                         std::stringstream ss;
                         ss << "Phone number \"" << phone_number << "\" added to whitelist";
                         SMSSender::instance().sendSMS(from, ss.str());
+                        saveState();
                     } else {
                         std::stringstream ss;
-                        ss << "Phone number \"" << phone_number << "\" is not valid. Phone numbers must follow this format: +(country code)(9-10 digits). Example: +3310203040506";
+                        ss << "Phone number \"" << phone_number << "\" is not valid. Phone numbers must follow this format: (country code)(9-10 digits). Example: 3310203040506";
                         SMSSender::instance().sendSMS(from, ss.str());
                     }
                 }
@@ -338,6 +342,7 @@ void BaseStation::parseCommands()
                     std::stringstream ss;
                     ss << "Phone number \"" << tokens[2] << "\" removed from whitelist";
                     SMSSender::instance().sendSMS(from, ss.str());
+                    saveState();
                 }
             }
         } else {
