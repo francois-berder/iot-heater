@@ -267,7 +267,7 @@ void BaseStation::parseCommands()
             }
         } else if (content == "GET HEATER HISTORY") {
             std::stringstream ss;
-            ss << "Last commands:\n";
+            ss << "Last Heater commands:\n";
             for (auto &h : m_heater_state_history) {
                 std::time_t now_c = std::chrono::system_clock::to_time_t(h.first);
                 tm *ltm = localtime(&now_c);
