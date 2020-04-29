@@ -413,7 +413,8 @@ void BaseStation::setHeaterState(enum HeaterState heater_state)
     m_heater_state_history.push_front(std::pair<std::chrono::system_clock::time_point,HeaterState>(std::chrono::system_clock::now(), m_heater_state));
 
     /* Limit history to last 16 items */
-    m_heater_state_history.resize(16);
+    while (m_heater_state_history.size() > 16)
+        m_heater_state_history.pop_back();
 
     saveState();
 }
