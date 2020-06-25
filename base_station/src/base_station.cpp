@@ -345,6 +345,14 @@ void BaseStation::parseCommands()
                     saveState();
                 }
             }
+        } else if (content.rfind("HELP") == 0) {
+            std::stringstream ss;
+            ss << "Basic commands:\n";
+            ss << "HEATER OFF\n";
+            ss << "HEATER ECO\n";
+            ss << "HEATER COMFORT\n";
+            ss << "HEATER DEFROST\n";
+            SMSSender::instance().sendSMS(from, ss.str());
         } else {
             std::stringstream ss;
             ss << "Received invalid message from: " << from;

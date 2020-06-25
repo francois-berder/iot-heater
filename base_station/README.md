@@ -8,6 +8,7 @@ Type `make` or `BUILDTYPE=debug make` to build `base_station` program.
 
 | SMS                   | Description                                 |
 | --------------------- | ------------------------------------------- |
+| HELP                  | Reply with basic commands                   |
 | PING                  | Reply with `PONG`                           |
 | VERSION               | Reply with base station software version    |
 | HEATER OFF            | Set heater state to OFF                     |
