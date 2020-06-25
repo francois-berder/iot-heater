@@ -15,6 +15,7 @@ Type `make` or `BUILDTYPE=debug make` to build `base_station` program.
 | HEATER DEFROST        | Set heater state to DEFROST                 |
 | HEATER ECO            | Set heater state to ECO                     |
 | HEATER COMFORT        | Set heater state to COMFORT                 |
+| HEATER ON             | Set heater state to COMFORT                 |
 | GET HEATER            | Reply with current heater state             |
 | GET IP                | Reply with public IP address                |
 | GET HEATER HISTORY    | Reply with last 16 heater commands          |

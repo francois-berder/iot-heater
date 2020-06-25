@@ -242,6 +242,9 @@ void BaseStation::parseCommands()
         } else if (content == "HEATER COMFORT") {
             setHeaterState(HEATER_COMFORT);
             SMSSender::instance().sendSMS(from, "HEATER COMFORT");
+        } else if (content == "HEATER ON") {
+            setHeaterState(HEATER_COMFORT);
+            SMSSender::instance().sendSMS(from, "HEATER ON");
         } else if (content == "GET HEATER") {
             std::string val;
             switch (m_heater_state) {
