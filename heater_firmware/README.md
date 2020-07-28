@@ -37,3 +37,8 @@ make term
 | Not connected to WiFi         | LED flash every 500ms                  |
 | Not connected to base station | LED flash every 3 seconds              |
 | All OK                        | LED ON only if reset button is pressed |
+
+## Reset button
+
+If the device is in commissioned mode, pressing the reset button for 10 seconds will reset
+the device and clear its configuration. The device comes up in uncommissioned mode.
