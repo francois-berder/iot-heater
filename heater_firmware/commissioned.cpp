@@ -70,12 +70,7 @@ static void update_leds()
         }
         break;
     case CONNECTED_TO_BASE_STATION:
-        if (counter >= 120) {
-            digitalWrite(LED1_PIN, 1);
-            counter = 0;
-        } else {
-            digitalWrite(LED1_PIN, 0);
-        }
+        digitalWrite(LED1_PIN, digitalRead(BUTTON_PIN));
         break;
     };
 

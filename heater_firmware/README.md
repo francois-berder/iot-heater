@@ -31,9 +31,9 @@ make term
 
 ## LED
 
-| Status                        | LED                        |
-| ----------------------------- | -------------------------- |
-| Not commissioned              | LED ON                     |
-| Not connected to WiFi         | LED flash every 500ms      |
-| Not connected to base station | LED flash every 3 seconds  |
-| All OK                        | LED flash every 60 seconds |
+| Status                        | LED                                    |
+| ----------------------------- | -------------------------------------- |
+| Not commissioned              | LED ON                                 |
+| Not connected to WiFi         | LED flash every 500ms                  |
+| Not connected to base station | LED flash every 3 seconds              |
+| All OK                        | LED ON only if reset button is pressed |
