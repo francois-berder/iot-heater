@@ -18,7 +18,13 @@ bool commissioned;
 void setup()
 {
     Serial.begin(115200);
-    Serial.println("\nHeater controller - " xstr(GIT_HASH) " - " xstr(BUILD_TIME));
+
+    {
+        char buffer[128];
+        sprintf(buffer, "\nHeater controller (serial: %08X) ", ESP.getChipId());
+        Serial.println(buffer);
+    }
+    Serial.println("Firmware version: " xstr(GIT_HASH) " - " xstr(BUILD_TIME));
 
     commissioned = settings_load();
 
