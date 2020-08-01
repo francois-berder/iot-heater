@@ -46,6 +46,9 @@ void setup_uncommissioned(void)
     WiFi.softAPConfig(apIP, apIP, IPAddress(255, 255, 255, 0));
     WiFi.softAP(ssid, password);
 
+    Serial.print("Starting WiFi network: ");
+    Serial.println(ssid);
+
     /* Start DNS server */
     dns_server.start(DNS_PORT, "www.heater.local", apIP);
 
