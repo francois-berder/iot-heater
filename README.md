@@ -44,7 +44,7 @@ network={
 10. Shutdown Raspberry pi by running `sudo shutdown now`
 11. Power up device
 
-## Heater controller
+## Heater controller (or IOT-heater)
 
 Each electric heater can be controlled by sending a SMS to the base station. Heater controllers periodically connect to the base station to retrieve the current heater state.
 
@@ -58,6 +58,8 @@ See [here](https://www.planete-domotique.com/blog/2012/01/05/piloter-un-radiateu
 
 Heater controllers are built around a ESP8266 which controls two solid state relays. A small 220VAC to 5VDC module is used to power the ESP8266.
 See Kicad files in folder `hardware` for more information.
+
+See `docs/iot_heater_assembly_guide.md` for more information on how to assemble the heater controller.
 
 ### Firmware
 
