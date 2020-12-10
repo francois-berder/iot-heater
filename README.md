@@ -64,3 +64,4 @@ See `docs/iot_heater_assembly_guide.md` for more information on how to assemble 
 ### Firmware
 
 The firmware is implemented using Arduino libraries for ESP8266.
+See `heater_firmware/README.md` for more information.
