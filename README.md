@@ -44,3 +44,21 @@ network={
 10. Shutdown Raspberry pi by running `sudo shutdown now`
 11. Power up device
 
+## Heater controller
+
+Each electric heater can be controlled by sending a SMS to the base station. Heater controllers periodically connect to the base station to retrieve the current heater state.
+
+Electric heaters are controlled by one wire:
+
+![heater control wire](docs/fil_pilote.png)
+
+See [here](https://www.planete-domotique.com/blog/2012/01/05/piloter-un-radiateur-grace-a-son-fil-pilote/) (in french) for more information on this control wire.
+
+### Hardware
+
+Heater controllers are built around a ESP8266 which controls two solid state relays. A small 220VAC to 5VDC module is used to power the ESP8266.
+See Kicad files in folder `hardware` for more information.
+
+### Firmware
+
+The firmware is implemented using Arduino libraries for ESP8266.
