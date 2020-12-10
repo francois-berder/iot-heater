@@ -1,4 +1,8 @@
-#!/bin/sh
+#!/bin/sh -e
+
+# This script creates an installer that will setup
+# the Raspberry Pi. After running the installer
+# and rebooting, the Pi acts as a base station.
 
 if ! [ -x "$(command -v makeself)" ]; then
     echo "Please install makeself"
