@@ -1,5 +1,11 @@
 #!/bin/sh -e
 
+# This script assumes that it is running on a Raspberry Pi.
+# It should be part of an installer built using
+# base_station_installer/build.sh
+#
+# It setups the Pi as a base station.
+
 if [ "$(id -u)" -ne 0 ]; then
     echo "Please run as root"
     exit 1
