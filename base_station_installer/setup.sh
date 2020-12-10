@@ -32,20 +32,6 @@ echo "Configuring smstools daemon"
 install -m 644 smsd.conf /etc/smsd.conf
 service smstools restart
 
-# Install pico ffs daemon
-echo "Installing pico FFS daemon"
-tar xf PiModules.tar.gz -C "${TMPDIR}"
-(
-    cd "${TMPDIR}/PiModules/code/python/package" || exit
-    python setup.py install
-)
-(
-    cd "${TMPDIR}/PiModules/code/python/upspico/picofssd" || exit
-    python setup.py install
-)
-systemctl enable picofssd
-systemctl start picofssd
-
 # Install base station server
 echo "Installing base station server"
 tar xf heater.tar.gz -C "${TMPDIR}"

@@ -12,11 +12,9 @@ You will need:
 
 - Raspberry Pi Zero W
 - SIM5320E with its 3G antenna
-- UPS PICO hat
-- a micro USB to micro USB
+- a micro USB to micro USB cable
 - some spacers
 - microSD card
-- 40-pin header to connect UPS pico hat to Raspberry Pi
 
 ### Software
 
@@ -42,9 +40,7 @@ network={
 6. Boot Pi using micro sdcard
 7. Login over SSH
 8. Change password by running `passwd`
-9. Enable I2C by running `sudo raspi-config`
-10. Run installer on Raspberry Pi
-11. Shutdown Raspberry pi by running `sudo shutdown now`
-12. Plug UPS PICO Hat and connect 3G module to Raspberry Pi
-13. Power up device
+9. Run installer on Raspberry Pi
+10. Shutdown Raspberry pi by running `sudo shutdown now`
+11. Power up device
 

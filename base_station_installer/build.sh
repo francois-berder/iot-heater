@@ -7,10 +7,6 @@ fi
 
 TMPDIR=$(mktemp -d)
 
-git clone --depth 1 https://github.com/modmypi/PiModules.git "${TMPDIR}/PiModules"
-tar czf "${TMPDIR}/PiModules.tar.gz" -C "${TMPDIR}" PiModules
-rm -rf "${TMPDIR}/PiModules"
-
 git clone --depth 1 https://github.com/francois-berder/iot-heater.git "${TMPDIR}/heater"
 tar czf "${TMPDIR}/heater.tar.gz" -C "${TMPDIR}" heater
 rm -rf "${TMPDIR}/heater"
