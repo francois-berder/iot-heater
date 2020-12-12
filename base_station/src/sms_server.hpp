@@ -15,7 +15,6 @@ public:
 
     void start();
     void stop();
-    void send_sms(const std::string &text);
 
 private:
     void run();
