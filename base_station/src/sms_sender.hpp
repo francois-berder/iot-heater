@@ -5,7 +5,7 @@
 #include <mutex>
 #include <string>
 
-enum SMSServerVerboseLevel {
+enum SMSReceiverVerboseLevel {
     SMS_SENDER_DEBUG,
     SMS_SENDER_VERBOSE,
     SMS_SENDER_QUIET,
@@ -26,7 +26,7 @@ public:
     void sendDebugSMS(const std::string& to, const std::string &content);
     void sendSMS(const std::string& to, const std::string &content);
 
-    void setVerboseLevel(enum SMSServerVerboseLevel verboseLevel);
+    void setVerboseLevel(enum SMSReceiverVerboseLevel verboseLevel);
 
 private:
 
@@ -34,7 +34,7 @@ private:
     ~SMSSender() = default;
 
     std::mutex m_mutex;
-    enum SMSServerVerboseLevel m_verboseLevel;
+    enum SMSReceiverVerboseLevel m_verboseLevel;
     uint64_t m_counter;
 };
 

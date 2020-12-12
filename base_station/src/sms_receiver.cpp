@@ -1,5 +1,5 @@
 #include "logger.hpp"
-#include "sms_server.hpp"
+#include "sms_receiver.hpp"
 #include <fcntl.h>
 #include <limits.h>
 #include <poll.h>
@@ -13,7 +13,7 @@
 #define SMSTOOL_INCOMING_DIR    "/var/spool/sms/incoming/"
 #define BUF_LEN                 (sizeof(struct inotify_event) + NAME_MAX + 1)
 
-SMSServer::SMSServer(SMSServerTextReceivedCallback cb):
+SMSReceiver::SMSReceiver(SMSReceiverCallback cb):
 m_callback(cb),
 m_thread(nullptr),
 m_running(false)
@@ -21,7 +21,7 @@ m_running(false)
 
 }
 
-SMSServer::~SMSServer()
+SMSReceiver::~SMSReceiver()
 {
     if (m_running) {
         m_running = false;
@@ -30,7 +30,7 @@ SMSServer::~SMSServer()
     }
 }
 
-void SMSServer::start()
+void SMSReceiver::start()
 {
     if (m_running) {
         Logger::warn("Attempted to start already running sms server");
@@ -38,10 +38,10 @@ void SMSServer::start()
     }
 
     m_running = true;
-    m_thread = new std::thread(&SMSServer::run, this);
+    m_thread = new std::thread(&SMSReceiver::run, this);
 }
 
-void SMSServer::stop()
+void SMSReceiver::stop()
 {
     if (!m_running) {
         Logger::warn("Attempted to stop already stopped sms server");
@@ -54,7 +54,7 @@ void SMSServer::stop()
     m_thread = nullptr;
 }
 
-void SMSServer::run()
+void SMSReceiver::run()
 {
     struct pollfd fds[1];
     int wd;
@@ -89,7 +89,7 @@ void SMSServer::run()
 
         ret = read(fds[0].fd, buf, BUF_LEN);
         if (ret < 0) {
-            Logger::err("sms_server read failed\n");
+            Logger::err("sms_receiver read failed\n");
             continue;
         }
 
@@ -103,7 +103,7 @@ void SMSServer::run()
     close(fds[0].fd);
 }
 
-void SMSServer::parseSMS(const std::string &path)
+void SMSReceiver::parseSMS(const std::string &path)
 {
     std::ifstream file(path);
 

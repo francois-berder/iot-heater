@@ -3,7 +3,7 @@
 #include "base_station.hpp"
 #include "logger.hpp"
 #include "device_server.hpp"
-#include "sms_server.hpp"
+#include "sms_receiver.hpp"
 
 #define DEFAULT_DEVICE_SERVER_PORT     (32322)
 
@@ -65,14 +65,14 @@ int main(int argc, char **argv)
                                std::bind(&BaseStation::handleNewDevice, &base_station, std::placeholders::_1));
     device_server.start();
 
-    SMSServer sms_server(std::bind(&BaseStation::handleSMSCommand, &base_station, std::placeholders::_1, std::placeholders::_2));
-    sms_server.start();
+    SMSReceiver sms_receiver(std::bind(&BaseStation::handleSMSCommand, &base_station, std::placeholders::_1, std::placeholders::_2));
+    sms_receiver.start();
     while (true) {
         base_station.process();
         wait_ms(50);
     }
 
-    sms_server.stop();
+    sms_receiver.stop();
     device_server.stop();
     Logger::instance().stopLogging();
 

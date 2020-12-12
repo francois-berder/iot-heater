@@ -93,7 +93,7 @@ void BaseStation::handleNewDevice(int fd)
 }
 
 /*
- * Beware this function is called from sms_server context !
+ * Beware this function is called from sms_receiver context !
  */
 void BaseStation::handleSMSCommand(const std::string &from, const std::string &content)
 {

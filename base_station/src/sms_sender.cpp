@@ -77,7 +77,7 @@ void SMSSender::sendSMS(const std::string &to, const std::string &content)
         Logger::err("Failed to send SMS\n");
 }
 
-void SMSSender::setVerboseLevel(enum SMSServerVerboseLevel verboseLevel)
+void SMSSender::setVerboseLevel(enum SMSReceiverVerboseLevel verboseLevel)
 {
     if (m_verboseLevel == verboseLevel)
         return;

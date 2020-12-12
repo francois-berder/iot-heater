@@ -22,7 +22,7 @@ SRCS := src/device_server.cpp \
 		src/logger.cpp \
 		src/main.cpp \
 		src/sms_sender.cpp \
-		src/sms_server.cpp \
+		src/sms_receiver.cpp \
 		src/timer.cpp
 OBJS := $(SRCS:%.cpp=$(OBJDIR)/%.o)
 DEPS := $(SRCS:%.cpp=$(DEPDIR)/%.d)
