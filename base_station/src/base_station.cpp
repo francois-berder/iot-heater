@@ -266,7 +266,10 @@ void BaseStation::parseCommands()
                     result += buffer.data();
                 if (result.size() > 64)
                     result.resize(64);
-                SMSSender::instance().sendSMS(from, result);
+                if (result.empty())
+                    SMSSender::instance().sendSMS(from, "Unable to get public IP");
+                else
+                    SMSSender::instance().sendSMS(from, result);
             }
         } else if (content == "GET HEATER HISTORY") {
             std::stringstream ss;
