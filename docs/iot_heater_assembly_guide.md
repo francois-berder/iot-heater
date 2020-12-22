@@ -21,6 +21,15 @@ Solder the following components on the PCB:
 - U1 (2x 15pin header)
 - 220VAC to 5VDC converter
 
+Pull-down/Pull-up resistors truth table:
+
+|         |  R5  |  R6  |  R8  |  R9  |
+| ------- | ---- | ---- | ---- | ---- |
+| OFF     |  fit |      |  fit |      |
+| CONFORT |      |  fit |      |  fit |
+| ECO     |  fit |      |  fit |      |
+| DEFROST |      |  fit |      |  fit |
+
 ## Step 2: Power converter test
 
 Do **not** plug a ESP8266
