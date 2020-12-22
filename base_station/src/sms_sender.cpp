@@ -84,7 +84,7 @@ void SMSSender::setVerboseLevel(enum SMSReceiverVerboseLevel verboseLevel)
 
     std::stringstream ss;
     ss << "Setting SMS log level to ";
-    if (verboseLevel == SMS_SENDER_VERBOSE)
+    if (verboseLevel == SMS_SENDER_DEBUG)
         ss << "DEBUG";
     else if (verboseLevel == SMS_SENDER_VERBOSE)
         ss << "VERBOSE";
