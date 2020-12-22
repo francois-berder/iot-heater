@@ -10,7 +10,7 @@ typedef std::function<void(const std::string&, const std::string&)> SMSReceiverC
 class SMSReceiver {
 public:
 
-    SMSReceiver(SMSReceiverCallback cb);
+    explicit SMSReceiver(SMSReceiverCallback cb);
     ~SMSReceiver();
 
     void start();

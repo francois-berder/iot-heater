@@ -9,7 +9,7 @@ public:
     void start(unsigned int period_ms, bool periodic = false);
     void stop();
 
-    int getFD();
+    int getFD() const;
 
 private:
     int fd;

@@ -14,7 +14,7 @@ Timer::~Timer()
         close(fd);
 }
 
-void Timer::start(unsigned int ms, bool periodic)
+void Timer::start(unsigned int period_ms, bool periodic)
 {
     if (fd < 0) {
         fd = timerfd_create(CLOCK_MONOTONIC, 0);
@@ -23,8 +23,8 @@ void Timer::start(unsigned int ms, bool periodic)
     }
 
     struct itimerspec val;
-    val.it_value.tv_sec = ms / 1000;
-    val.it_value.tv_nsec = (ms - val.it_value.tv_sec  * 1000) * 1000 * 1000;
+    val.it_value.tv_sec = period_ms / 1000;
+    val.it_value.tv_nsec = (period_ms - val.it_value.tv_sec  * 1000) * 1000 * 1000;
     if (periodic) {
         val.it_interval.tv_nsec = val.it_value.tv_nsec;
         val.it_interval.tv_sec = val.it_value.tv_sec;
@@ -45,7 +45,7 @@ void Timer::stop()
     timerfd_settime(fd, 0, &val, NULL);
 }
 
-int Timer::getFD()
+int Timer::getFD() const
 {
     return fd;
 }
