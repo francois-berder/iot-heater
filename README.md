@@ -20,7 +20,7 @@ See `base_station/README.md` for more information.
 
 ## Heater controller (or IOT-heater)
 
-Each electric heater can be controlled by sending a SMS to the base station. Heater controllers periodically connect to the base station to retrieve the current heater state. Note that you cannot control the state of each heater.
+Each electric heater can be controlled by sending a SMS to the base station. Heater controllers periodically connect to the base station to retrieve the current heater state.
 
 Electric heaters are controlled by one wire:
 

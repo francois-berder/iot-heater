@@ -36,23 +36,31 @@ network={
 
 ## SMS commands
 
-| SMS                   | Description                                 |
-| --------------------- | ------------------------------------------- |
-| HELP                  | Reply with basic commands                   |
-| PING                  | Reply with `PONG`                           |
-| VERSION               | Reply with base station software version    |
-| HEATER OFF            | Set heater state to OFF                     |
-| HEATER DEFROST        | Set heater state to DEFROST                 |
-| HEATER ECO            | Set heater state to ECO                     |
-| HEATER COMFORT        | Set heater state to COMFORT                 |
-| HEATER ON             | Set heater state to COMFORT                 |
-| GET HEATER            | Reply with current heater state             |
-| GET IP                | Reply with public IP address                |
-| GET HEATER HISTORY    | Reply with previous 16 heater commands      |
-| LOCK                  | Only phones whitelisted can send SMS        |
-| UNLOCK <pin>          | All phones can send SMS (default PIN: 1234) |
-| ADD PHONE <number>    | Add phone number to whitelist               |
-| REMOVE PHONE <number> | Remove phone number from whitelist          |
+| SMS                   | Description                                       |
+| --------------------- | ------------------------------------------------- |
+| HELP                  | Reply with basic commands                         |
+| PING                  | Reply with `PONG`                                 |
+| VERSION               | Reply with base station software version          |
+| ALL OFF               | Set heater state to OFF                           |
+| ALL DEFROST           | Set heater state to DEFROST                       |
+| ALL ECO               | Set heater state to ECO                           |
+| ALL COMFORT           | Set heater state to COMFORT                       |
+| ALL ON                | Set heater state to COMFORT                       |
+| HEATER <name> OFF     | Set heater <name> state to OFF                    |
+| HEATER <name> DEFROST | Set heater <name> state to DEFROST                |
+| HEATER <name> ECO     | Set heater <name> state to ECO                    |
+| HEATER <name> COMFORT | Set heater <name> state to COMFORT                |
+| HEATER <name> ON      | Set heater <name> state to COMFORT                |
+| GET DEFAULT           | Reply with current default heater state           |
+| GET HEATER <name>     | Reply with current heater state                   |
+| GET IP                | Reply with public IP address                      |
+| LOCK                  | Only phones whitelisted can send SMS              |
+| UNLOCK <pin>          | All phones can send SMS (default PIN: 1234)       |
+| ADD PHONE <number>    | Add phone number to whitelist                     |
+| REMOVE PHONE <number> | Remove phone number from whitelist                |
+| DEBUG FILESTATE       | Send content of `/var/lib/base_station.state`     |
+| DEBUG STATE           | Send default state and all heater state           |
+| DEBUG REBOOT          | Reboot Raspberry Pi                               |
 
 ### Phone whitelist
 

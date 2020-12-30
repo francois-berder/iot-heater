@@ -11,6 +11,7 @@
 #include <sstream>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <sys/reboot.h>
 #include <unistd.h>
 #include <vector>
 
@@ -44,6 +45,30 @@ bool check_phone_number_format(const std::string &no)
 
     return true;
 }
+
+/* From https://stackoverflow.com/questions/874134/find-out-if-string-ends-with-another-string-in-c */
+bool ends_with(std::string const & value, std::string const & ending)
+{
+    if (ending.size() > value.size()) return false;
+    return std::equal(ending.rbegin(), ending.rend(), value.rbegin());
+}
+
+bool check_heater_name(const std::string &name)
+{
+    if (name.empty())
+        return false;
+
+    for (unsigned int i = 0; i < name.length(); ++i) {
+        bool is_char_valid = (name[i] >= 'a' && name[i] <= 'z')
+                          || (name[i] >= 'A' && name[i] <= 'Z')
+                          || (name[i] >= '0' && name[i] <= '9');
+
+        if (!is_char_valid)
+            return false;
+    }
+
+    return true;
+}
 }
 
 enum MessageType {
@@ -57,8 +82,8 @@ m_connections_mutex(),
 m_commands(),
 m_commands_mutex(),
 m_stale_timer(),
-m_heater_state(HEATER_OFF),
-m_heater_state_history()
+m_heater_default_state(HEATER_OFF),
+m_heater_state()
 {
     if (!loadState())
         saveState();
@@ -180,13 +205,37 @@ void BaseStation::handleTimers()
 
 void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
 {
+    /* Parse version */
+    uint8_t version;
+    version = *data++;
+
+    if (version != 1) {
+        std::stringstream msg;
+        msg << "Ignoring message. Version " << version << " not supported.";
+        Logger::warn(msg.str());
+        return;
+    }
+
+    /* Parse type */
     uint16_t type;
     memcpy(&type, data, sizeof(type));
     data += sizeof(type);
 
     if (type == MessageType::ALIVE) {
         conn.last_seen = std::chrono::steady_clock::now();
-        sendHeaterState(conn.fd);
+
+        /* Parse name */
+        std::string name;
+        {
+            unsigned int i = 0;
+            while (data[i] != 0xFF && data[i] != '\0')
+                name += data[i++];
+        }
+
+        for (unsigned int i = 0; i < name.length(); ++i)
+            name[i] = toupper(name[i]);
+
+        sendHeaterState(conn.fd, name);
     } else {
         std::stringstream ss;
         ss << "Received unknown message type " << type << " from ";
@@ -222,45 +271,160 @@ void BaseStation::parseCommands()
 
         if (content == "PING")
             SMSSender::instance().sendSMS(from, "PONG");
-        else if (content == "DEBUG")
-            SMSSender::instance().setVerboseLevel(SMS_SENDER_DEBUG);
-        else if (content == "VERBOSE")
-            SMSSender::instance().setVerboseLevel(SMS_SENDER_VERBOSE);
-        else if (content == "QUIET")
-            SMSSender::instance().setVerboseLevel(SMS_SENDER_QUIET);
         else if (content == "VERSION")
             sendVersion(from);
-        else if (content == "HEATER OFF") {
-            setHeaterState(HEATER_OFF);
-            SMSSender::instance().sendSMS(from, "HEATER OFF");
-        } else if (content == "HEATER ECO") {
-            setHeaterState(HEATER_ECO);
-            SMSSender::instance().sendSMS(from, "HEATER ECO");
-        } else if (content == "HEATER DEFROST") {
-            setHeaterState(HEATER_DEFROST);
-            SMSSender::instance().sendSMS(from, "HEATER DEFROST");
-        } else if (content == "HEATER COMFORT") {
-            setHeaterState(HEATER_COMFORT);
-            SMSSender::instance().sendSMS(from, "HEATER COMFORT");
-        } else if (content == "HEATER ON") {
-            setHeaterState(HEATER_COMFORT);
-            SMSSender::instance().sendSMS(from, "HEATER ON");
-        } else if (content == "GET HEATER") {
-            std::string val;
-            switch (m_heater_state) {
-            case HEATER_OFF: val = "HEATER OFF"; break;
-            case HEATER_DEFROST: val = "HEATER DEFROST"; break;
-            case HEATER_ECO: val = "HEATER ECO"; break;
-            case HEATER_COMFORT: val = "HEATER COMFORT"; break;
-            default: val = "HEATER UNKNOWN"; break;
+        else if (content == "ALL OFF") {
+            m_heater_default_state = HEATER_OFF;
+            for (auto &e : m_heater_state)
+                e.second = HEATER_OFF;
+            saveState();
+            SMSSender::instance().sendSMS(from, "ALL OFF");
+        } else if (content == "ALL ECO") {
+            m_heater_default_state = HEATER_ECO;
+            for (auto &e : m_heater_state)
+                e.second = HEATER_ECO;
+            saveState();
+            SMSSender::instance().sendSMS(from, "ALL ECO");
+        } else if (content == "ALL DEFROST") {
+            m_heater_default_state = HEATER_DEFROST;
+            for (auto &e : m_heater_state)
+                e.second = HEATER_DEFROST;
+            saveState();
+            SMSSender::instance().sendSMS(from, "ALL DEFROST");
+        } else if (content == "ALL COMFORT") {
+            m_heater_default_state = HEATER_COMFORT;
+            for (auto &e : m_heater_state)
+                e.second = HEATER_COMFORT;
+            saveState();
+            SMSSender::instance().sendSMS(from, "ALL COMFORT");
+        } else if (content == "ALL ON") {
+            m_heater_default_state = HEATER_COMFORT;
+            for (auto &e : m_heater_state)
+                e.second = HEATER_COMFORT;
+            saveState();
+            SMSSender::instance().sendSMS(from, "ALL ON");
+        } else if (content.rfind("HEATER ", 0) == 0 && ends_with(content, " OFF")) {
+            std::string name;
+            name = content.substr(7);
+            name = name.substr(0, name.length() - 4);
+
+            if (check_heater_name(name)) {
+                m_heater_state[name] = HEATER_OFF;
+                saveState();
+                std::stringstream reply;
+                reply << "HEATER " << name << " OFF";
+                SMSSender::instance().sendSMS(from, reply.str());
+            } else {
+                SMSSender::instance().sendSMS(from, "Invalid heater name");
             }
-            SMSSender::instance().sendSMS(from, val);
+        } else if (content.rfind("HEATER ", 0) == 0 && ends_with(content, " ECO")) {
+            std::string name;
+            name = content.substr(7);
+            name = name.substr(0, name.length() - 4);
+
+            std::stringstream m;
+            m << '\"' << name << '\"' << '\n';
+            Logger::debug(m.str());
+
+            if (check_heater_name(name)) {
+                m_heater_state[name] = HEATER_ECO;
+                saveState();
+                std::stringstream reply;
+                reply << "HEATER " << name << " ECO";
+                SMSSender::instance().sendSMS(from, reply.str());
+            } else {
+                SMSSender::instance().sendSMS(from, "Invalid heater name");
+            }
+        } else if (content.rfind("HEATER ", 0) == 0 && ends_with(content, " DEFROST")) {
+            std::string name;
+            name = content.substr(7);
+            name = name.substr(0, name.length() - 8);
+
+            if (check_heater_name(name)) {
+                m_heater_state[name] = HEATER_DEFROST;
+                saveState();
+                std::stringstream reply;
+                reply << "HEATER " << name << " DEFROST";
+                SMSSender::instance().sendSMS(from, reply.str());
+            } else {
+                SMSSender::instance().sendSMS(from, "Invalid heater name");
+            }
+        } else if (content.rfind("HEATER ", 0) == 0 && ends_with(content, " COMFORT")) {
+            std::string name;
+            name = content.substr(7);
+            name = name.substr(0, name.length() - 8);
+
+            if (check_heater_name(name)) {
+                m_heater_state[name] = HEATER_COMFORT;
+                saveState();
+                std::stringstream reply;
+                reply << "HEATER " << name << " COMFORT";
+                SMSSender::instance().sendSMS(from, reply.str());
+            } else  {
+                SMSSender::instance().sendSMS(from, "Invalid heater name");
+            }
+        } else if (content.rfind("HEATER ", 0) == 0 && ends_with(content, " ON")) {
+            std::string name;
+            name = content.substr(7);
+            name = name.substr(0, name.length() - 3);
+
+            if (check_heater_name(name)) {
+                m_heater_state[name] = HEATER_COMFORT;
+                saveState();
+                std::stringstream reply;
+                reply << "HEATER " << name << " ON";
+                SMSSender::instance().sendSMS(from, reply.str());
+            } else {
+                SMSSender::instance().sendSMS(from, "Invalid heater name");
+            }
+        } else if (content == "GET DEFAULT") {
+            switch (m_heater_default_state) {
+            case HEATER_OFF:
+                SMSSender::instance().sendSMS(from, "DEFAULT: OFF");
+                break;
+            case HEATER_DEFROST:
+                SMSSender::instance().sendSMS(from, "DEFAULT: DEFROST");
+                break;
+            case HEATER_ECO:
+                SMSSender::instance().sendSMS(from, "DEFAULT: ECO");
+                break;
+            case HEATER_COMFORT:
+                SMSSender::instance().sendSMS(from, "DEFAULT: COMFORT/ON");
+                break;
+            }
+        } else if (content.rfind("GET HEATER ", 0) == 0) {
+            std::string name;
+
+            name = content.substr(11);
+
+            if (check_heater_name(name)) {
+                for (unsigned int i = 0; i < name.length(); ++i)
+                    name[i] = toupper(name[i]);
+
+                auto it = m_heater_state.find(name);
+                HeaterState state;
+                if (it != m_heater_state.end())
+                    state = it->second;
+                else
+                    state = m_heater_default_state;
+
+                std::stringstream msg;
+                switch (state) {
+                case HEATER_OFF: msg << "HEATER " << name << " OFF"; break;
+                case HEATER_DEFROST: msg << "HEATER " << name << " DEFROST"; break;
+                case HEATER_ECO: msg << "HEATER " << name << " ECO"; break;
+                case HEATER_COMFORT: msg << "HEATER " << name << " COMFORT/ON"; break;
+                }
+                SMSSender::instance().sendSMS(from, msg.str());
+            } else {
+                SMSSender::instance().sendSMS(from, "Invalid name");
+            }
         } else if (content == "GET IP") {
             std::array<char, 128> buffer;
             std::string result;
-            std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("dig +short myip.opendns.com @resolver1.opendns.com", "r"), pclose);
+            std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("curl ifconfig.me", "r"), pclose);
             if (!pipe) {
-                SMSSender::instance().sendSMS(from, "Fail to execute dig");
+                SMSSender::instance().sendSMS(from, "Fail to get public IP");
             } else {
                 while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
                     result += buffer.data();
@@ -271,33 +435,6 @@ void BaseStation::parseCommands()
                 else
                     SMSSender::instance().sendSMS(from, result);
             }
-        } else if (content == "GET HEATER HISTORY") {
-            std::stringstream ss;
-            ss << "Last Heater commands:\n";
-            for (auto &h : m_heater_state_history) {
-                std::time_t now_c = std::chrono::system_clock::to_time_t(h.first);
-                tm *ltm = localtime(&now_c);
-                std::stringstream date;
-                date << ltm->tm_mday
-                    << "/"
-                    << 1 + ltm->tm_mon
-                    << "/"
-                    << 1900 + ltm->tm_year
-                    << " "
-                    << 1 + ltm->tm_hour
-                    << ":"
-                    << 1 + ltm->tm_min
-                    << ":"
-                    << 1 + ltm->tm_sec;
-                switch (h.second) {
-                case HEATER_OFF: ss << " OFF\n"; break;
-                case HEATER_DEFROST: ss << " DEFROST\n"; break;
-                case HEATER_ECO: ss << " ECO\n"; break;
-                case HEATER_COMFORT: ss << " COMFORT\n"; break;
-                }
-            }
-
-            SMSSender::instance().sendSMS(from, ss.str());
         } else if (content == "LOCK") {
             if (m_phone_whitelist.find(from) != m_phone_whitelist.end()) {
                 SMSSender::instance().sendSMS(from, "LOCKED");
@@ -354,11 +491,40 @@ void BaseStation::parseCommands()
         } else if (content.rfind("HELP") == 0) {
             std::stringstream ss;
             ss << "Basic commands:\n";
-            ss << "HEATER OFF\n";
-            ss << "HEATER ECO\n";
-            ss << "HEATER COMFORT\n";
-            ss << "HEATER DEFROST\n";
+            ss << "ALL OFF\n";
+            ss << "ALL ECO\n";
+            ss << "ALL COMFORT\n";
+            ss << "ALL DEFROST\n";
             SMSSender::instance().sendSMS(from, ss.str());
+        } else if (content == "DEBUG FILESTATE") {
+            std::ifstream file(STATE_FILE_PATH);
+            std::string line;
+            std::stringstream msg;
+            while(std::getline(file, line)) {
+                msg << line << '\n';
+            }
+            SMSSender::instance().sendSMS(from, msg.str());
+        } else if (content == "DEBUG STATE") {
+            std::stringstream msg;
+            switch (m_heater_default_state) {
+            case HEATER_OFF: msg << "DEFAULT: OFF\n"; break;
+            case HEATER_DEFROST: msg << "DEFAULT: DEFROST\n"; break;
+            case HEATER_ECO: msg << "DEFAULT: ECO\n"; break;
+            case HEATER_COMFORT: msg << "DEFAULT: COMFORT/ON\n"; break;
+            }
+
+            for (auto &e : m_heater_state) {
+                switch (e.second) {
+                case HEATER_OFF: msg << "HEATER " << e.first << ": OFF\n"; break;
+                case HEATER_DEFROST: msg << "HEATER " << e.first << ": DEFROST\n"; break;
+                case HEATER_ECO: msg << "HEATER " << e.first << ": ECO\n"; break;
+                case HEATER_COMFORT: msg << "HEATER " << e.first << ": COMFORT/ON\n"; break;
+                }
+            }
+            SMSSender::instance().sendSMS(from, msg.str());
+        } else if (content == "DEBUG REBOOT") {
+            sync();
+            reboot(RB_AUTOBOOT);
         } else {
             std::stringstream ss;
             ss << "Received invalid message from: " << from;
@@ -392,13 +558,20 @@ void BaseStation::checkStaleConnections()
     }
 }
 
-void BaseStation::sendHeaterState(int fd)
+void BaseStation::sendHeaterState(int fd, const std::string &name)
 {
     uint8_t data[MESSAGE_SIZE];
     memset(data, 0xFF, sizeof(data));
+
+    data[0] = 1;        /* Version */
     uint16_t type = HEATER;
-    memcpy(data, &type, sizeof(type));
-    data[2] = m_heater_state;
+    memcpy(&data[1], &type, sizeof(type));
+
+    auto it = m_heater_state.find(name);
+    if (it != m_heater_state.end())
+        data[3] = it->second;
+    else
+        data[3] = m_heater_default_state;
 
     int sent = 0;
     while (sent < MESSAGE_SIZE) {
@@ -407,35 +580,6 @@ void BaseStation::sendHeaterState(int fd)
             break;
         sent += ret;
     }
-}
-
-void BaseStation::setHeaterState(enum HeaterState heater_state)
-{
-    if (m_heater_state == heater_state)
-        return;
-    m_heater_state = heater_state;
-
-    switch (m_heater_state) {
-    case HEATER_OFF:
-        Logger::debug("Changing heater state to OFF");
-        break;
-    case HEATER_DEFROST:
-        Logger::debug("Changing heater state to DEFROST");
-        break;
-    case HEATER_ECO:
-        Logger::debug("Changing heater state to ECO");
-        break;
-    case HEATER_COMFORT:
-        Logger::debug("Changing heater state to COMFORT");
-        break;
-    }
-    m_heater_state_history.push_front(std::pair<std::chrono::system_clock::time_point,HeaterState>(std::chrono::system_clock::now(), m_heater_state));
-
-    /* Limit history to last 16 items */
-    while (m_heater_state_history.size() > 16)
-        m_heater_state_history.pop_back();
-
-    saveState();
 }
 
 bool BaseStation::loadState()
@@ -463,18 +607,44 @@ bool BaseStation::loadState()
             std::not1(std::ptr_fun<int, int>(std::isspace))));
         val.erase(std::find_if(val.rbegin(), val.rend(),
             std::not1(std::ptr_fun<int, int>(std::isspace))).base(), val.end());
-        if (key == "heater_state") {
+        if (key == "default_heater_state") {
             if (val == "off")
-                m_heater_state = HEATER_OFF;
+                m_heater_default_state = HEATER_OFF;
             else if (val == "defrost")
-                m_heater_state = HEATER_DEFROST;
+                m_heater_default_state = HEATER_DEFROST;
             else if (val == "eco")
-                m_heater_state = HEATER_ECO;
+                m_heater_default_state = HEATER_ECO;
             else if (val == "comfort")
-                m_heater_state = HEATER_COMFORT;
+                m_heater_default_state = HEATER_COMFORT;
             else {
-                m_heater_state = HEATER_OFF;
-                Logger::err("Invalid value for heater_state key. Setting heater_state to OFF.");
+                m_heater_default_state = HEATER_DEFROST;
+                Logger::err("Invalid value for default_heater_state key. Setting default_heater_state to DEFROST.");
+            }
+        } else if (key.rfind("heater_", 0) == 0
+                && ends_with(key, "_state")) {
+            std::string name = key.substr(7, key.length() - 7 - 6);
+
+            if (check_heater_name(name)) {
+                for (unsigned int i = 0; i < name.length(); ++i)
+                    name[i] = toupper(name[i]);
+
+                if (val == "off")
+                    m_heater_state[name] = HEATER_OFF;
+                else if (val == "defrost")
+                    m_heater_state[name] = HEATER_DEFROST;
+                else if (val == "eco")
+                    m_heater_state[name] = HEATER_ECO;
+                else if (val == "comfort")
+                    m_heater_state[name] = HEATER_COMFORT;
+                else {
+                    std::stringstream msg;
+                    msg << "Invalid value \"" << val << "\" for heater " << name;
+                    Logger::warn(msg.str());
+                }
+            } else {
+                std::stringstream msg;
+                msg << "Invalid heater name \"" << name << "\".";
+                Logger::warn(msg.str());
             }
         } else if (key == "whitelist") {
             std::istringstream iss(val);
@@ -502,19 +672,36 @@ void BaseStation::saveState()
         Logger::err("Could not save state to file " STATE_FILE_PATH);
         return;
     }
-    switch (m_heater_state) {
+    switch (m_heater_default_state) {
     case HEATER_OFF:
-        file << "heater_state=off\n";
+        file << "default_heater_state=off\n";
         break;
     case HEATER_DEFROST:
-        file << "heater_state=defrost\n";
+        file << "default_heater_state=defrost\n";
         break;
     case HEATER_ECO:
-        file << "heater_state=eco\n";
+        file << "default_heater_state=eco\n";
         break;
     case HEATER_COMFORT:
-        file << "heater_state=comfort\n";
+        file << "default_heater_state=comfort\n";
         break;
+    }
+
+    for (auto &e : m_heater_state) {
+        switch (e.second) {
+        case HEATER_OFF:
+            file << "heater_" << e.first << "_state=off\n";
+            break;
+        case HEATER_DEFROST:
+            file << "heater_" << e.first << "_state=defrost\n";
+            break;
+        case HEATER_ECO:
+            file << "heater_" << e.first << "_state=eco\n";
+            break;
+        case HEATER_COMFORT:
+            file << "heater_" << e.first << "_state=comfort\n";
+            break;
+        }
     }
 
     file << "whitelist=";

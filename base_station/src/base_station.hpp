@@ -42,8 +42,7 @@ private:
     void parseCommands();
     void sendVersion(const std::string &to);
     void checkStaleConnections();
-    void sendHeaterState(int fd);
-    void setHeaterState(enum HeaterState heater_state);
+    void sendHeaterState(int fd, const std::string &name);
 
     bool loadState();
     void saveState();
@@ -55,8 +54,8 @@ private:
     std::mutex m_commands_mutex;
 
     Timer m_stale_timer;
-    HeaterState m_heater_state;
-    std::deque<std::pair<std::chrono::system_clock::time_point,HeaterState>> m_heater_state_history;
+    HeaterState m_heater_default_state;
+    std::map<std::string, HeaterState> m_heater_state;
 
     bool locked;
     std::set<std::string> m_phone_whitelist;

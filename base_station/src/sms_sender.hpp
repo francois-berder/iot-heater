@@ -5,11 +5,6 @@
 #include <mutex>
 #include <string>
 
-enum SMSReceiverVerboseLevel {
-    SMS_SENDER_DEBUG,
-    SMS_SENDER_VERBOSE,
-    SMS_SENDER_QUIET,
-};
 
 class SMSSender {
 public:
@@ -20,13 +15,7 @@ public:
 
     static SMSSender& instance();
 
-    void sendErrorSMS(const std::string& to, const std::string &content);
-    void sendWarningSMS(const std::string& to, const std::string &content);
-    void sendVerboseSMS(const std::string& to, const std::string &content);
-    void sendDebugSMS(const std::string& to, const std::string &content);
     void sendSMS(const std::string& to, const std::string &content);
-
-    void setVerboseLevel(enum SMSReceiverVerboseLevel verboseLevel);
 
 private:
 
@@ -34,7 +23,6 @@ private:
     ~SMSSender() = default;
 
     std::mutex m_mutex;
-    enum SMSReceiverVerboseLevel m_verboseLevel;
     uint64_t m_counter;
 };
 
