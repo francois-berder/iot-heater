@@ -546,6 +546,22 @@ void BaseStation::parseCommands()
         } else if (content == "DEBUG REBOOT") {
             sync();
             reboot(RB_AUTOBOOT);
+        } else if (content == "DEBUG WIFI") {
+            std::array<char, 512> buffer;
+            std::string result;
+            std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("iwconfig wlan0", "r"), pclose);
+            if (!pipe) {
+                SMSSender::instance().sendSMS(from, "Fail to get wifi connection info");
+            } else {
+                while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
+                    result += buffer.data();
+                if (result.size() > 512)
+                    result.resize(512);
+                if (result.empty())
+                    SMSSender::instance().sendSMS(from, "Unable to get wifi connection info");
+                else
+                    SMSSender::instance().sendSMS(from, result);
+            }
         } else {
             std::stringstream ss;
             ss << "Received invalid message from: " << from;
