@@ -61,6 +61,7 @@ network={
 | DEBUG FILESTATE       | Send content of `/var/lib/base_station.state`     |
 | DEBUG STATE           | Send default state and all heater state           |
 | DEBUG REBOOT          | Reboot Raspberry Pi                               |
+| SET EMERGENCY PHONE <number> | Set emergency phone number                 |
 
 ### Phone whitelist
 

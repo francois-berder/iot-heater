@@ -57,8 +57,10 @@ private:
     HeaterState m_heater_default_state;
     std::map<std::string, HeaterState> m_heater_state;
 
-    bool locked;
+    bool m_locked;
     std::set<std::string> m_phone_whitelist;
+
+    std::string m_emergency_phone;
 };
 
 #endif

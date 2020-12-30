@@ -82,8 +82,11 @@ m_connections_mutex(),
 m_commands(),
 m_commands_mutex(),
 m_stale_timer(),
-m_heater_default_state(HEATER_OFF),
-m_heater_state()
+m_heater_default_state(HEATER_DEFROST),
+m_heater_state(),
+m_locked(false),
+m_phone_whitelist(),
+m_emergency_phone()
 {
     if (!loadState())
         saveState();
@@ -253,7 +256,7 @@ void BaseStation::parseCommands()
         m_commands.pop();
 
         /* Check phone belongs to whitelist */
-        if (locked && !m_phone_whitelist.empty() && m_phone_whitelist.find(from) == m_phone_whitelist.end()) {
+        if (m_locked && !m_phone_whitelist.empty() && m_phone_whitelist.find(from) == m_phone_whitelist.end()) {
             std::stringstream ss;
             ss << "Received SMS from phone number \"" << from << "\" not in whitelist";
             Logger::warn(ss.str());
@@ -438,7 +441,7 @@ void BaseStation::parseCommands()
         } else if (content == "LOCK") {
             if (m_phone_whitelist.find(from) != m_phone_whitelist.end()) {
                 SMSSender::instance().sendSMS(from, "LOCKED");
-                locked = true;
+                m_locked = true;
             } else {
                 SMSSender::instance().sendSMS(from, "Cannot lock: phone number is not whitelisted. Use ADD PHONE command.");
             }
@@ -450,13 +453,13 @@ void BaseStation::parseCommands()
             if (tokens.size() >= 2) {
                 if (tokens[1] == BASE_STATION_PIN) {
                     SMSSender::instance().sendSMS(from, "UNLOCKED");
-                    locked = false;
+                    m_locked = false;
                 } else {
                     SMSSender::instance().sendSMS(from, "Wrong PIN");
                 }
             }
         } else if (content.rfind("ADD PHONE ", 0) == 0) {
-            if (!locked) {
+            if (!m_locked) {
                 std::istringstream iss(content);
                 std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
                                                 std::istream_iterator<std::string>{}};
@@ -476,7 +479,7 @@ void BaseStation::parseCommands()
                 }
             }
         } else if (content.rfind("REMOVE PHONE ", 0) == 0) {
-            if (!locked) {
+            if (!m_locked) {
                 std::istringstream iss(content);
                 std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
                                                 std::istream_iterator<std::string>{}};
@@ -486,6 +489,24 @@ void BaseStation::parseCommands()
                     ss << "Phone number \"" << tokens[2] << "\" removed from whitelist";
                     SMSSender::instance().sendSMS(from, ss.str());
                     saveState();
+                }
+            }
+        } else if (content.rfind("SET EMERGENCY PHONE ", 0) == 0) {
+            std::istringstream iss(content);
+            std::vector<std::string> tokens{std::istream_iterator<std::string>{iss},
+                                            std::istream_iterator<std::string>{}};
+            if (tokens.size() == 4) {
+                std::string phone_number = tokens[3];
+                if (check_phone_number_format(phone_number)) {
+                    m_emergency_phone = phone_number;
+                    std::stringstream ss;
+                    ss << phone_number << " set as emergency phone number.";
+                    SMSSender::instance().sendSMS(from, ss.str());
+                    saveState();
+                } else {
+                    std::stringstream ss;
+                    ss << "Phone number \"" << phone_number << "\" is not valid. Phone numbers must follow this format: (country code)(9-10 digits). Example: 3310203040506";
+                    SMSSender::instance().sendSMS(from, ss.str());
                 }
             }
         } else if (content.rfind("HELP") == 0) {
@@ -650,8 +671,21 @@ bool BaseStation::loadState()
             std::istringstream iss(val);
             std::string item;
             while (std::getline(iss, item, ',')) {
-                if (check_phone_number_format(item))
+                if (check_phone_number_format(item)) {
                     m_phone_whitelist.insert(item);
+                } else {
+                    std::stringstream msg;
+                    msg << "Invalid phone number: " << item;
+                    Logger::warn(msg.str());
+                }
+            }
+        } else if (key == "emergency_phone") {
+            if (check_phone_number_format(val)) {
+                m_emergency_phone = val;
+            } else {
+                std::stringstream msg;
+                msg << "Invalid emergency phone number: " << val;
+                Logger::warn(msg.str());
             }
         } else {
             std::stringstream ss;
@@ -713,6 +747,8 @@ void BaseStation::saveState()
             file << ',';
     }
     file << '\n';
+
+    file << "emergency_phone=" << m_emergency_phone << '\n';
 
     Logger::debug("Saved state to file " STATE_FILE_PATH);
 }
