@@ -7,6 +7,7 @@
 #include <list>
 #include <memory>
 #include <mutex>
+#include <net/if.h>
 #include <poll.h>
 #include <sstream>
 #include <string.h>
@@ -30,6 +31,9 @@
 #define MESSAGE_SIZE    (64)
 
 #define STATE_FILE_PATH     "/var/lib/base_station.state"
+
+#define CHECK_WIFI_PERIOD       (60 * 1000)
+#define NETWORK_INTERFACE_NAME  "wlan0"
 
 namespace {
 
@@ -86,10 +90,15 @@ m_heater_default_state(HEATER_DEFROST),
 m_heater_state(),
 m_locked(false),
 m_phone_whitelist(),
-m_emergency_phone()
+m_emergency_phone(),
+m_check_wifi_timer(),
+m_wifi_not_good_counter(0)
 {
     if (!loadState())
         saveState();
+
+    /* Start check wifi timer */
+    m_check_wifi_timer.start(CHECK_WIFI_PERIOD, true);
 }
 
 BaseStation::~BaseStation()
@@ -104,6 +113,7 @@ void BaseStation::process()
     handleConnections();
     handleTimers();
     parseCommands();
+    checkWifi();
 }
 
 /*
@@ -616,6 +626,50 @@ void BaseStation::sendHeaterState(int fd, const std::string &name)
         if (ret <= 0)
             break;
         sent += ret;
+    }
+}
+
+void BaseStation::checkWifi()
+{
+    struct pollfd fds[1];
+
+    fds[0].fd = m_check_wifi_timer.getFD();
+    fds[0].events = POLLIN;
+
+    int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), 0);
+    if (ret > 0) {
+        /* Dummy read with timer fd to clear event */
+        uint64_t _;
+        read(fds[0].fd, &_, sizeof(_));
+
+        struct ifreq ifr;
+        memset(&ifr, 0, sizeof(ifr));
+        strcpy(ifr.ifr_name, NETWORK_INTERFACE_NAME);
+
+        int dummy_fd = socket(AF_INET, SOCK_DGRAM, 0);
+        if (ioctl(dummy_fd, SIOCGIFFLAGS, &ifr) != -1) {
+            bool up_and_running = (ifr.ifr_flags & ( IFF_UP | IFF_RUNNING )) == ( IFF_UP | IFF_RUNNING );
+
+            if (!up_and_running) {
+                ++m_wifi_not_good_counter;
+                if (m_wifi_not_good_counter == 15) {
+                    Logger::err("Lost WiFi connection for past 15 minutes");
+
+                    if (!m_emergency_phone.empty())
+                        SMSSender::instance().sendSMS(m_emergency_phone, "Error! Base station lost WiFi connection for past 15 minutes. Heaters cannot be controlled.");
+                }
+            } else {
+                if (m_wifi_not_good_counter) {
+                    Logger::info("WiFi connection restored");
+                    if (!m_emergency_phone.empty())
+                        SMSSender::instance().sendSMS(m_emergency_phone, "Base station restored WiFi connection. System is now running ok.");
+                }
+                m_wifi_not_good_counter = 0;
+            }
+        } else {
+            Logger::err("Cannot check connection status of network interface " NETWORK_INTERFACE_NAME);
+        }
+        close(dummy_fd);
     }
 }
 

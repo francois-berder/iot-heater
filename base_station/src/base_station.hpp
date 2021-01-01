@@ -43,6 +43,7 @@ private:
     void sendVersion(const std::string &to);
     void checkStaleConnections();
     void sendHeaterState(int fd, const std::string &name);
+    void checkWifi();
 
     bool loadState();
     void saveState();
@@ -61,6 +62,8 @@ private:
     std::set<std::string> m_phone_whitelist;
 
     std::string m_emergency_phone;
+    Timer m_check_wifi_timer;
+    unsigned int m_wifi_not_good_counter;
 };
 
 #endif
