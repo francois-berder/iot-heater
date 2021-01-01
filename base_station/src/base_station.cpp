@@ -578,6 +578,27 @@ void BaseStation::parseCommands()
                 else
                     SMSSender::instance().sendSMS(from, result);
             }
+        } else if (content == "DEBUG LOG") {
+            /* Read logs from base_station.service */
+            std::array<char, 4096> buffer;
+            std::string result;
+            std::unique_ptr<FILE, decltype(&pclose)> pipe(popen("journalctl --unit=basestation.service --no-pager", "r"), pclose);
+            if (!pipe) {
+                SMSSender::instance().sendSMS(from, "Fail to get basestation logs");
+            } else {
+                while (fgets(buffer.data(), buffer.size(), pipe.get()) != nullptr)
+                    result += buffer.data();
+                if (result.empty()) {
+                    SMSSender::instance().sendSMS(from, "Unable to get basestation logs");
+                } else {
+                    std::string msg;
+                    while (!result.empty()) {
+                        msg = result.substr(0, 512);
+                        result.erase(0, 512);
+                        SMSSender::instance().sendSMS(from, msg);
+                    }
+                }
+            }
         } else {
             std::stringstream ss;
             ss << "Received invalid message from: " << from;

@@ -62,6 +62,7 @@ network={
 | DEBUG STATE           | Send default state and all heater state           |
 | DEBUG REBOOT          | Reboot Raspberry Pi                               |
 | DEBUG WIFI            | Get Wifi connection information                   |
+| DEBUG LOG             | Send `basestation.service` system logs            |
 | SET EMERGENCY PHONE <number> | Set emergency phone number                 |
 | REMOVE EMERGENCY PHONE | Remove emergency phone                           |
 
