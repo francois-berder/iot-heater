@@ -63,6 +63,7 @@ network={
 | DEBUG REBOOT          | Reboot Raspberry Pi                               |
 | DEBUG WIFI            | Get Wifi connection information                   |
 | SET EMERGENCY PHONE <number> | Set emergency phone number                 |
+| REMOVE EMERGENCY PHONE | Remove emergency phone                           |
 
 ### Phone whitelist
 

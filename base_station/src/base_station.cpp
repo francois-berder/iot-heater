@@ -519,6 +519,12 @@ void BaseStation::parseCommands()
                     SMSSender::instance().sendSMS(from, ss.str());
                 }
             }
+        } else if (content == "REMOVE EMERGENCY PHONE") {
+            if (!m_emergency_phone.empty()) {
+                Logger::info("Removed emergency phone");
+                SMSSender::instance().sendSMS(from, "Emergency phone removed");
+            }
+            m_emergency_phone.clear();
         } else if (content.rfind("HELP") == 0) {
             std::stringstream ss;
             ss << "Basic commands:\n";
