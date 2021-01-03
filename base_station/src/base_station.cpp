@@ -2,6 +2,7 @@
 #include "logger.hpp"
 #include "sms_sender.hpp"
 #include <algorithm>
+#include <array>
 #include <fstream>
 #include <iterator>
 #include <list>
@@ -274,10 +275,9 @@ void BaseStation::parseCommands()
         }
 
         /* Trim content */
-        content.erase(content.begin(), std::find_if(content.begin(), content.end(),
-            std::not1(std::ptr_fun<int, int>(std::isspace))));
+        content.erase(content.begin(), std::find_if(content.begin(), content.end(), [] (unsigned char c){ return !std::isspace(c); }));
         content.erase(std::find_if(content.rbegin(), content.rend(),
-            std::not1(std::ptr_fun<int, int>(std::isspace))).base(), content.end());
+                      [] (unsigned char c){ return !std::isspace(c); }).base(), content.end());
 
         /* Convert all lowercase characters to uppercase */
         for (auto & c: content) c = toupper(c);
@@ -718,13 +718,13 @@ bool BaseStation::loadState()
 
         /* Trim name and val */
         key.erase(key.begin(), std::find_if(key.begin(), key.end(),
-            std::not1(std::ptr_fun<int, int>(std::isspace))));
+            [] (unsigned char c){ return !std::isspace(c); }));
         key.erase(std::find_if(key.rbegin(), key.rend(),
-            std::not1(std::ptr_fun<int, int>(std::isspace))).base(), key.end());
+            [] (unsigned char c){ return !std::isspace(c); }).base(), key.end());
         val.erase(val.begin(), std::find_if(val.begin(), val.end(),
-            std::not1(std::ptr_fun<int, int>(std::isspace))));
+            [] (unsigned char c){ return !std::isspace(c); }));
         val.erase(std::find_if(val.rbegin(), val.rend(),
-            std::not1(std::ptr_fun<int, int>(std::isspace))).base(), val.end());
+            [] (unsigned char c){ return !std::isspace(c); }).base(), val.end());
         if (key == "default_heater_state") {
             if (val == "off")
                 m_heater_default_state = HEATER_OFF;
