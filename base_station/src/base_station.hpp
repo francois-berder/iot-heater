@@ -64,6 +64,8 @@ private:
     std::string m_emergency_phone;
     Timer m_check_wifi_timer;
     unsigned int m_wifi_not_good_counter;
+
+    uint64_t m_message_counter;
 };
 
 #endif

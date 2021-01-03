@@ -3,6 +3,7 @@
 #include "sms_sender.hpp"
 #include <algorithm>
 #include <array>
+#include <cstdlib>
 #include <fstream>
 #include <iterator>
 #include <list>
@@ -35,6 +36,13 @@
 
 #define CHECK_WIFI_PERIOD       (60 * 1000)
 #define NETWORK_INTERFACE_NAME  "wlan0"
+
+struct __attribute__((packed)) message_header_t {
+    uint8_t version;
+    uint8_t type;
+    uint8_t mac_addr[6];
+    uint64_t counter;
+};
 
 namespace {
 
@@ -77,8 +85,8 @@ bool check_heater_name(const std::string &name)
 }
 
 enum MessageType {
-    ALIVE,
-    HEATER,
+    REQ_HEATER_STATE,
+    HEATER_STATE_REPLY,
 };
 
 BaseStation::BaseStation():
@@ -93,13 +101,19 @@ m_locked(false),
 m_phone_whitelist(),
 m_emergency_phone(),
 m_check_wifi_timer(),
-m_wifi_not_good_counter(0)
+m_wifi_not_good_counter(0),
+m_message_counter(0)
 {
     if (!loadState())
         saveState();
 
     /* Start check wifi timer */
     m_check_wifi_timer.start(CHECK_WIFI_PERIOD, true);
+
+    /* Initialize message counter */
+    srand(time(NULL));
+    m_message_counter = rand();
+    m_message_counter <<= 32;
 }
 
 BaseStation::~BaseStation()
@@ -219,40 +233,54 @@ void BaseStation::handleTimers()
 
 void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
 {
-    /* Parse version */
-    uint8_t version;
-    version = *data++;
+    struct message_header_t header;
 
-    if (version != 1) {
+    /* Parse header */
+    header.version = *data++;
+    header.type = *data++;
+    memcpy(header.mac_addr, data, sizeof(header.mac_addr));
+    data += sizeof(header.mac_addr);
+    memcpy(&header.counter, data, sizeof(header.counter));
+    data += sizeof(header.counter);
+
+    if (header.version != 1) {
         std::stringstream msg;
-        msg << "Ignoring message. Version " << version << " not supported.";
+        msg << "Ignoring message. Version " << header.version << " not supported.";
         Logger::warn(msg.str());
         return;
     }
 
-    /* Parse type */
-    uint16_t type;
-    memcpy(&type, data, sizeof(type));
-    data += sizeof(type);
-
-    if (type == MessageType::ALIVE) {
+    if (header.type == MessageType::REQ_HEATER_STATE) {
         conn.last_seen = std::chrono::steady_clock::now();
 
-        /* Parse name */
+        /* Parse optional name */
         std::string name;
         {
             unsigned int i = 0;
             while (data[i] != 0xFF && data[i] != '\0')
-                name += data[i++];
+                name += toupper(data[i++]);
         }
 
-        for (unsigned int i = 0; i < name.length(); ++i)
-            name[i] = toupper(name[i]);
-
         sendHeaterState(conn.fd, name);
+    } else if (header.type == MessageType::HEATER_STATE_REPLY) {
+        std::stringstream ss;
+        ss << "Ignoring HEATER_STATE_REPLY message from "
+        << std::hex <<header.mac_addr[0] << ':'
+        << std::hex <<header.mac_addr[1] << ':'
+        << std::hex <<header.mac_addr[2] << ':'
+        << std::hex <<header.mac_addr[3] << ':'
+        << std::hex <<header.mac_addr[4] << ':'
+        << std::hex <<header.mac_addr[5];
+        Logger::err(ss.str());
     } else {
         std::stringstream ss;
-        ss << "Received unknown message type " << type << " from ";
+        ss << "Received unknown message type " << header.type << " from "
+        << std::hex <<header.mac_addr[0] << ':'
+        << std::hex <<header.mac_addr[1] << ':'
+        << std::hex <<header.mac_addr[2] << ':'
+        << std::hex <<header.mac_addr[3] << ':'
+        << std::hex <<header.mac_addr[4] << ':'
+        << std::hex <<header.mac_addr[5];
         Logger::warn(ss.str());
     }
 }
@@ -634,18 +662,38 @@ void BaseStation::checkStaleConnections()
 
 void BaseStation::sendHeaterState(int fd, const std::string &name)
 {
+    message_header_t header;
+    header.version = 1;
+    header.type = MessageType::HEATER_STATE_REPLY;
+    {
+        struct ifreq s;
+        int fd = socket(PF_INET, SOCK_DGRAM, 0);
+        if (fd < 0) {
+            Logger::warn("Unable to get MAC address of network interface " NETWORK_INTERFACE_NAME);
+            memset(header.mac_addr, 0, sizeof(header.mac_addr));
+        } else {
+            strcpy(s.ifr_name, NETWORK_INTERFACE_NAME);
+            if (0 == ioctl(fd, SIOCGIFHWADDR, &s)) {
+                for (int i = 0; i < 6; ++i)
+                    header.mac_addr[i] = s.ifr_addr.sa_data[i];
+            } else {
+                Logger::warn("Unable to get MAC address of network interface " NETWORK_INTERFACE_NAME);
+                memset(header.mac_addr, 0, sizeof(header.mac_addr));
+            }
+            close(fd);
+        }
+    }
+    header.counter = m_message_counter++;
+
     uint8_t data[MESSAGE_SIZE];
     memset(data, 0xFF, sizeof(data));
-
-    data[0] = 1;        /* Version */
-    uint16_t type = HEATER;
-    memcpy(&data[1], &type, sizeof(type));
+    memcpy(data, &header, sizeof(header));
 
     auto it = m_heater_state.find(name);
     if (it != m_heater_state.end())
-        data[3] = it->second;
+        data[sizeof(header)] = it->second;
     else
-        data[3] = m_heater_default_state;
+        data[sizeof(header)] = m_heater_default_state;
 
     int sent = 0;
     while (sent < MESSAGE_SIZE) {
