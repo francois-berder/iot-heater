@@ -102,7 +102,8 @@ m_phone_whitelist(),
 m_emergency_phone(),
 m_check_wifi_timer(),
 m_wifi_not_good_counter(0),
-m_message_counter(0)
+m_message_counter(0),
+m_heater_counter()
 {
     if (!loadState())
         saveState();
@@ -248,6 +249,35 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
         msg << "Ignoring message. Version " << header.version << " not supported.";
         Logger::warn(msg.str());
         return;
+    }
+
+    /* Check if device rebooted since last message */
+    {
+        uint64_t mac_addr;
+
+        mac_addr = ((uint64_t)header.mac_addr[5] << 40LU)
+                | ((uint64_t)header.mac_addr[4] << 32LU)
+                | ((uint64_t)header.mac_addr[3] << 24LU)
+                | ((uint64_t)header.mac_addr[2] << 16LU)
+                | ((uint64_t)header.mac_addr[1] << 8LU)
+                | ((uint64_t)header.mac_addr[0]);
+
+        auto it = m_heater_counter.find(mac_addr);
+        if (it == m_heater_counter.end()) {
+            m_heater_counter[mac_addr] = header.counter;
+        } else if (it->second - header.counter > 3) {
+            std::stringstream ss;
+            ss << "It seems that device "
+            << std::hex << header.mac_addr[5] << ':'
+            << std::hex << header.mac_addr[4] << ':'
+            << std::hex << header.mac_addr[3] << ':'
+            << std::hex << header.mac_addr[2] << ':'
+            << std::hex << header.mac_addr[1] << ':'
+            << std::hex << header.mac_addr[0] << ':'
+            << " rebooted a few minutes ago.";
+            Logger::warn(ss.str());
+            m_heater_counter[mac_addr] = header.counter;
+        }
     }
 
     if (header.type == MessageType::REQ_HEATER_STATE) {

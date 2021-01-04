@@ -66,6 +66,7 @@ private:
     unsigned int m_wifi_not_good_counter;
 
     uint64_t m_message_counter;
+    std::map<uint64_t,uint64_t> m_heater_counter; /* MAC addr -> counter */
 };
 
 #endif
