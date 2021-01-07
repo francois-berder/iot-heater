@@ -12,6 +12,13 @@ Run the following command to install arduino-cli:
 curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
 ```
 
+Arduino library dependencies:
+
+- [ESPAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP)
+- [ESPAsyncWebServer](https://github.com/me-no-dev/ESPAsyncWebServer)
+- [ESP8266TrueRandom](https://github.com/marvinroger/ESP8266TrueRandom)
+- [NTPClient](https://github.com/arduino-libraries/NTPClient)
+
 ## Build & Flash instructions
 
 To compile and flash the board, use these commands:

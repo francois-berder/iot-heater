@@ -9,10 +9,15 @@
 #include <ESP8266mDNS.h>
 #include <ESPAsyncTCP.h>
 #include <ESPAsyncWebServer.h>
+#include <ESP8266TrueRandom.h>
+#include <NTPClient.h>
+#include <WiFiUdp.h>
 
 #define BUTTON_PRESS_TIMEOUT  (10000)    /* Timeout in milliseconds */
 #define WIFI_JOIN_TIMEOUT     (15000)    /* Timeout in milliseconds */
 #define HEATER_STATE_TIMEOUT  (1000)
+
+#define NTP_ADDRESS  "europe.pool.ntp.org"
 
 static WiFiEventHandler wifi_connected_handler;
 static WiFiEventHandler wifi_disconnected_handler;
@@ -24,11 +29,14 @@ static char webpage_buffer[512];
 static bool button_pressed;
 static unsigned long button_pressed_start;
 
-#define SEND_ALIVE_PERIOD           (30000)     /* in milliseconds */
+static WiFiUDP ntpUDP;
+static NTPClient ntpClient(ntpUDP, NTP_ADDRESS);
 
-#define SEND_ALIVE_EV               (1)
+#define SEND_HEATER_STATE_REQ_PERIOD    (30000)     /* in milliseconds */
 
-static Ticker send_alive_ticker;
+#define SEND_HEATER_STATE_REQ_EV        (1)
+
+static Ticker send_heater_state_req_ticker;
 static uint32_t events;
 
 #define BLINK_PERIOD           (500)    /* in milliseconds */
@@ -48,9 +56,20 @@ static unsigned int base_station_failure;
 
 static uint8_t heater_state;
 
+static uint64_t msg_counter;
 enum message_type_t {
-    MESSAGE_ALIVE,
-    MESSAGE_HEATER_STATE,
+    REQ_HEATER_STATE    = 1,
+    HEATER_STATE_REPLY  = 2,
+};
+
+struct message_t {
+    struct __attribute__((packed)) message_header_t {
+        uint8_t protocol_version;
+        uint8_t msg_type;
+        uint8_t mac[6];
+        uint64_t counter;
+    } header;
+    uint8_t data[48];
 };
 
 static void update_leds()
@@ -77,17 +96,27 @@ static void update_leds()
     ++counter;
 }
 
+static void log_to_serial(char *str)
+{
+    char buffer[256];
+    unsigned long timestamp;
+
+    timestamp = ntpClient.getEpochTime();
+    sprintf(buffer, "[%u] %s", timestamp, str);
+    Serial.println(buffer);
+}
+
 static void wifi_connected(const WiFiEventStationModeConnected& event)
 {
-    Serial.println("Connected to WiFi");
+    log_to_serial("Connected to WiFi");
     connected = true;
-    events |= SEND_ALIVE_EV;
+    events |= SEND_HEATER_STATE_REQ_EV;
     led_state = DISCONNECTED_FROM_BASE_STATION;
 }
 
 static void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
 {
-    Serial.println("Disonnected from WiFi");
+    log_to_serial("Disonnected from WiFi");
     connected = false;
     led_state = DISCONNECTED_FROM_WIFI;
 }
@@ -98,34 +127,34 @@ static void wifi_got_ip(const WiFiEventStationModeGotIP& event)
     settings_get_name(name);
 
     if (!MDNS.begin(name))
-        Serial.println("Cannot start MDNS server");
+        log_to_serial("Cannot start MDNS server");
 }
 
-static void send_alive_callback(void)
+static void send_heater_state_req_callback(void)
 {
-    events |= SEND_ALIVE_EV;
+    events |= SEND_HEATER_STATE_REQ_EV;
 }
 
 static void apply_heater_state(void)
 {
     switch (heater_state) {
     case HEATER_DEFROST:
-        Serial.println("Heater in defrost mode");
+        log_to_serial("Heater in defrost mode");
         digitalWrite(POSITIVE_OUTPUT_PIN, 0);
         digitalWrite(NEGATIVE_OUTPUT_PIN, 1);
         break;
     case HEATER_ECO:
-        Serial.println("Heater in eco mode");
+        log_to_serial("Heater in eco mode");
         digitalWrite(POSITIVE_OUTPUT_PIN, 1);
         digitalWrite(NEGATIVE_OUTPUT_PIN, 1);
         break;
     case HEATER_COMFORT:
-        Serial.println("Heater in comfort mode");
+        log_to_serial("Heater in comfort/on mode");
         digitalWrite(POSITIVE_OUTPUT_PIN, 0);
         digitalWrite(NEGATIVE_OUTPUT_PIN, 0);
         break;
     default:
-        Serial.println("Turning heater off");
+        log_to_serial("Turning heater off");
         digitalWrite(POSITIVE_OUTPUT_PIN, 1);
         digitalWrite(NEGATIVE_OUTPUT_PIN, 0);
         break;
@@ -142,16 +171,25 @@ void setup_commissioned()
     pinMode(POSITIVE_OUTPUT_PIN, OUTPUT);
     pinMode(NEGATIVE_OUTPUT_PIN, OUTPUT);
 
+    if (settings_check()) {
+        log_to_serial("Settings check fail. Restarting in uncommissioned mode.");
+        settings_erase();
+        ESP.restart();
+    }
+
+    msg_counter = ESP8266TrueRandom.random();
+    msg_counter <<= 32;
+
     led_state = DISCONNECTED_FROM_WIFI;
     leds_ticker.attach_ms(BLINK_PERIOD, update_leds);
 
     /*
-     * Turn off heater. This is the safest option as
+     * Put heater in defrost mode. This is the safest option as
      * we do not know how long we stayed off
      * and whether the base station is up and running. If it is,
      * we will soon get the heater state.
      */
-    heater_state = HEATER_OFF;
+    heater_state = HEATER_DEFROST;
     apply_heater_state();
 
     char ssid[64];
@@ -166,13 +204,18 @@ void setup_commissioned()
     settings_get_name(name);
     WiFi.hostname(name);
     WiFi.begin(ssid, password);
-    Serial.print("Connecting to Wifi: ");
-    Serial.println(ssid);
+    {
+        char buffer[128];
+        sprintf(buffer, "Connecting to Wifi: %s", ssid);
+        Serial.println(buffer);
+    }
 
     if (WiFi.status() == WL_CONNECTED) {
         Serial.println("Connected to WiFi");
         connected = true;
     }
+
+    ntpClient.begin();
 
     /* Spawn web server */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
@@ -184,7 +227,7 @@ void setup_commissioned()
             sprintf(webpage_buffer, commissioned_index_html, "ECO");
             break;
         case HEATER_COMFORT:
-            sprintf(webpage_buffer, commissioned_index_html, "COMFORT");
+            sprintf(webpage_buffer, commissioned_index_html, "COMFORT/ON");
             break;
         default:
             sprintf(webpage_buffer, commissioned_index_html, "OFF");
@@ -195,11 +238,12 @@ void setup_commissioned()
     );
     server.begin();
 
-    send_alive_ticker.attach_ms(SEND_ALIVE_PERIOD, send_alive_callback);
+    send_heater_state_req_ticker.attach_ms(SEND_HEATER_STATE_REQ_PERIOD, send_heater_state_req_callback);
 }
 
 void loop_commissioned()
 {
+    ntpClient.update();
     MDNS.update();
 
     /* Clear configuration if button is pressed for a while */
@@ -215,20 +259,22 @@ void loop_commissioned()
         button_pressed = false;
     }
 
-    if (connected && (events & SEND_ALIVE_EV)) {
-        events &= ~SEND_ALIVE_EV;
+    if (connected && (events & SEND_HEATER_STATE_REQ_EV)) {
+        events &= ~SEND_HEATER_STATE_REQ_EV;
 
         WiFiClient client;
         if (client.connect(base_station_hostname, BASE_STATION_PORT)) {
-            uint8_t message[64];
+            log_to_serial("Sending heater state request");
 
-            Serial.println("Send alive message");
+            struct message_t heater_state_req_msg;
+            memset(&heater_state_req_msg, 0xFF, sizeof(heater_state_req_msg));
+            heater_state_req_msg.header.protocol_version = 1;
+            heater_state_req_msg.header.msg_type = REQ_HEATER_STATE;
+            WiFi.macAddress(heater_state_req_msg.header.mac);
+            heater_state_req_msg.header.counter = msg_counter++;
+            settings_get_name((char *)heater_state_req_msg.data);
 
-            /* Send alive */
-            message[0] = MESSAGE_ALIVE;
-            message[1] = MESSAGE_ALIVE >> 8;
-            memset(&message[2], 0xFF, sizeof(message) - 2);
-            client.write(message, sizeof(message));
+            client.write((uint8_t *)&heater_state_req_msg, sizeof(heater_state_req_msg));
             base_station_failure = 0;
 
             unsigned long start = millis();
@@ -237,37 +283,48 @@ void loop_commissioned()
                     break;
             }
             if (millis() - start > HEATER_STATE_TIMEOUT) {
-                Serial.println("Timeout receiving heater state");
+                log_to_serial("Timeout while waiting for heater state reply from base station");
             } else {
-                client.read(message, sizeof(message));
-                uint16_t type;
-                type = (message[1] << 8) | message[0];
+                struct message_t heater_state_reply_msg;
+                client.read((uint8_t *)&heater_state_reply_msg, sizeof(heater_state_reply_msg));
 
-                if (type == MESSAGE_HEATER_STATE) {
-                    heater_state = message[2];
-                    apply_heater_state();
+                if (heater_state_reply_msg.header.protocol_version != 1) {
+                    log_to_serial("Discarding message: protocol version not supported");
+                } else if (heater_state_reply_msg.header.msg_type == REQ_HEATER_STATE) {
+                    log_to_serial("Discarding message: not expecting REQ_HEATER_STATE from base station");
+                } else if (heater_state_reply_msg.header.msg_type == HEATER_STATE_REPLY) {
+                    uint8_t new_heater_state = heater_state_reply_msg.data[0];
+                    if (heater_state != new_heater_state) {
+                        switch (new_heater_state) {
+                        case HEATER_OFF:
+                        case HEATER_DEFROST:
+                        case HEATER_ECO:
+                        case HEATER_COMFORT:
+                            heater_state = new_heater_state;
+                            apply_heater_state();
+                            break;
+                        default:
+                            log_to_serial("Received invalid heater state from base station");
+                            break;
+                        }
+                    }
                 } else {
-                    Serial.print("Received invalid message type ");
-                    Serial.print(type);
-                    Serial.println(" from base station");
+                    led_state = CONNECTED_TO_BASE_STATION;
                 }
-
-                led_state = CONNECTED_TO_BASE_STATION;
             }
-
         } else {
-            Serial.println("Failed to connect to base station");
+            log_to_serial("Failed to connect to base station");
             if (base_station_failure < MAX_BASE_STATION_FAILURE)
                 base_station_failure++;
 
             if (base_station_failure == MAX_BASE_STATION_FAILURE) {
-                Serial.println("Too many failures while sending ALIVE to base station");
+                log_to_serial("Too many failures while requesting heater state from base station");
 
                 /*
-                 * It seems that the base station is down. Turn off
-                 * the heater.
+                 * It seems that the base station is down.
+                 * Let's put the heater in defrost mode.
                  */
-                heater_state = HEATER_OFF;
+                heater_state = HEATER_DEFROST;
                 apply_heater_state();
 
                 led_state = DISCONNECTED_FROM_BASE_STATION;

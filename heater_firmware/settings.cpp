@@ -95,3 +95,21 @@ void settings_get_password(char *password)
     else
         memset(password, 0, sizeof(settings.password));
 }
+
+bool settings_check()
+{
+    if (strlen(settings.name) == 0 || strlen(settings.ssid) == 0)
+        return false;
+
+    for (int i = 0; i < strlen(settings.name); ++i) {
+        bool is_valid = ('a' <= settings.name[i] && settings.name[i] <= 'z')
+                     || ('A' <= settings.name[i] && settings.name[i] <= 'Z')
+                     || ('0' <= settings.name[i] && settings.name[i] <= '9');
+        if (!is_valid)
+            return false;
+    }
+
+    /* Note that empty password is allowed to support open wifi */
+
+    return is_valid();
+}

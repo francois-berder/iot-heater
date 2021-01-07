@@ -62,4 +62,11 @@ void settings_get_ssid(char *ssid);
  */
 void settings_get_password(char *password);
 
+/**
+ * @brief Quick settings check
+ *
+ * @return True if settings are valid, false otherwise
+ */
+bool settings_check();
+
 #endif
