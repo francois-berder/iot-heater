@@ -85,8 +85,8 @@ bool check_heater_name(const std::string &name)
 }
 
 enum MessageType {
-    REQ_HEATER_STATE,
-    HEATER_STATE_REPLY,
+    REQ_HEATER_STATE    = 1,
+    HEATER_STATE_REPLY  = 2,
 };
 
 BaseStation::BaseStation():
@@ -251,10 +251,21 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
         return;
     }
 
-    /* Check if device rebooted since last message */
-    {
-        uint64_t mac_addr;
+    if (header.type == MessageType::REQ_HEATER_STATE) {
+        conn.last_seen = std::chrono::steady_clock::now();
 
+        /* Parse optional name */
+        std::string name;
+        {
+            unsigned int i = 0;
+            while (data[i] != 0xFF && data[i] != '\0')
+                name += toupper(data[i++]);
+        }
+
+        sendHeaterState(conn.fd, name);
+
+        /* Check if device rebooted since last message */
+        uint64_t mac_addr;
         mac_addr = ((uint64_t)header.mac_addr[5] << 40LU)
                 | ((uint64_t)header.mac_addr[4] << 32LU)
                 | ((uint64_t)header.mac_addr[3] << 24LU)
@@ -276,41 +287,39 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
             << std::hex << header.mac_addr[0] << ':'
             << " rebooted a few minutes ago.";
             Logger::warn(ss.str());
+            
+            std::stringstream msg;
+            msg << "Warning!\n"
+            << "Device " << name << ' '
+            << std::hex << header.mac_addr[5] << ':'
+            << std::hex << header.mac_addr[4] << ':'
+            << std::hex << header.mac_addr[3] << ':'
+            << std::hex << header.mac_addr[2] << ':'
+            << std::hex << header.mac_addr[1] << ':'
+            << std::hex << header.mac_addr[0] << ':'
+            << " probably rebooted a few minutes ago.";
+            SMSSender::instance().sendSMS(m_emergency_phone, msg.str());
             m_heater_counter[mac_addr] = header.counter;
         }
-    }
-
-    if (header.type == MessageType::REQ_HEATER_STATE) {
-        conn.last_seen = std::chrono::steady_clock::now();
-
-        /* Parse optional name */
-        std::string name;
-        {
-            unsigned int i = 0;
-            while (data[i] != 0xFF && data[i] != '\0')
-                name += toupper(data[i++]);
-        }
-
-        sendHeaterState(conn.fd, name);
     } else if (header.type == MessageType::HEATER_STATE_REPLY) {
         std::stringstream ss;
-        ss << "Ignoring HEATER_STATE_REPLY message from "
-        << std::hex <<header.mac_addr[0] << ':'
-        << std::hex <<header.mac_addr[1] << ':'
-        << std::hex <<header.mac_addr[2] << ':'
-        << std::hex <<header.mac_addr[3] << ':'
-        << std::hex <<header.mac_addr[4] << ':'
-        << std::hex <<header.mac_addr[5];
+        ss << "Ignoring HEATER_STATE_REPLY message from device "
+        << std::hex << header.mac_addr[5] << ':'
+        << std::hex << header.mac_addr[4] << ':'
+        << std::hex << header.mac_addr[3] << ':'
+        << std::hex << header.mac_addr[2] << ':'
+        << std::hex << header.mac_addr[1] << ':'
+        << std::hex << header.mac_addr[0];
         Logger::err(ss.str());
     } else {
         std::stringstream ss;
-        ss << "Received unknown message type " << header.type << " from "
-        << std::hex <<header.mac_addr[0] << ':'
-        << std::hex <<header.mac_addr[1] << ':'
-        << std::hex <<header.mac_addr[2] << ':'
-        << std::hex <<header.mac_addr[3] << ':'
-        << std::hex <<header.mac_addr[4] << ':'
-        << std::hex <<header.mac_addr[5];
+        ss << "Received unknown message type " << header.type << " from device "
+        << std::hex << header.mac_addr[5] << ':'
+        << std::hex << header.mac_addr[4] << ':'
+        << std::hex << header.mac_addr[3] << ':'
+        << std::hex << header.mac_addr[2] << ':'
+        << std::hex << header.mac_addr[1] << ':'
+        << std::hex << header.mac_addr[0];
         Logger::warn(ss.str());
     }
 }
