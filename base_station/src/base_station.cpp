@@ -35,7 +35,9 @@
 #define STATE_FILE_PATH     "/var/lib/base_station.state"
 
 #define CHECK_WIFI_PERIOD       (60 * 1000)
+#define CHECK_LOST_DEVICES_PERIOD   (60 * 60 * 1000)
 #define NETWORK_INTERFACE_NAME  "wlan0"
+#define DEVICE_LOST_THRESHOLD   (60 * 60)
 
 struct __attribute__((packed)) message_header_t {
     uint8_t version;
@@ -103,13 +105,18 @@ m_emergency_phone(),
 m_check_wifi_timer(),
 m_wifi_not_good_counter(0),
 m_message_counter(0),
-m_heater_counter()
+m_heater_counter(),
+m_heater_last_seen(),
+m_lost_devices_timer()
 {
     if (!loadState())
         saveState();
 
     /* Start check wifi timer */
     m_check_wifi_timer.start(CHECK_WIFI_PERIOD, true);
+
+    /* Start lost devices timer */
+    m_lost_devices_timer.start(CHECK_LOST_DEVICES_PERIOD, true);
 
     /* Initialize message counter */
     srand(time(NULL));
@@ -130,6 +137,7 @@ void BaseStation::process()
     handleTimers();
     parseCommands();
     checkWifi();
+    checkLostDevices();
 }
 
 /*
@@ -294,6 +302,9 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
             SMSSender::instance().sendSMS(m_emergency_phone, buf);
         }
         m_heater_counter[mac_addr] = header.counter;
+
+        /* Record last time we got a correct request from the device */
+        m_heater_last_seen[mac_addr] = time(NULL);
 
         sendHeaterState(conn.fd, name);
     } else if (header.type == MessageType::HEATER_STATE_REPLY) {
@@ -779,6 +790,59 @@ void BaseStation::checkWifi()
             Logger::err("Cannot check connection status of network interface " NETWORK_INTERFACE_NAME);
         }
         close(dummy_fd);
+    }
+}
+
+void BaseStation::checkLostDevices()
+{
+    struct pollfd fds[1];
+
+    fds[0].fd = m_lost_devices_timer.getFD();
+    fds[0].events = POLLIN;
+
+    int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), 0);
+    if (ret <= 0)
+        return;
+
+    /* Dummy read with timer fd to clear event */
+    uint64_t _;
+    read(fds[0].fd, &_, sizeof(_));
+
+    time_t now = time(NULL);
+    auto it = m_heater_last_seen.begin();
+    while (it != m_heater_last_seen.end()) {
+
+        if (now - it->second < DEVICE_LOST_THRESHOLD) {
+            ++it;
+            continue;
+        }
+
+        uint8_t mac_addr[6];
+        mac_addr[0] = it->first >> 40;
+        mac_addr[1] = it->first >> 32;
+        mac_addr[2] = it->first >> 24;
+        mac_addr[3] = it->first >> 16;
+        mac_addr[4] = it->first >> 8;
+        mac_addr[5] = it->first;
+
+        char buf[128];
+        sprintf(buf, "Did not receive valid message from device %02X:%02X:%02X:%02X:%02X:%02X for more than %d seconds",
+            mac_addr[0],
+            mac_addr[1],
+            mac_addr[2],
+            mac_addr[3],
+            mac_addr[4],
+            mac_addr[5],
+            DEVICE_LOST_THRESHOLD);
+        Logger::warn(buf);
+
+        if (!m_emergency_phone.empty()) {
+            char buf2[128];
+            strcpy(buf2, "WARNING! ");
+            strcat(buf2, buf);
+            SMSSender::instance().sendSMS(m_emergency_phone, buf2);
+        }
+        it = m_heater_last_seen.erase(it);
     }
 }
 

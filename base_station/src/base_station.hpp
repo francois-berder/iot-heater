@@ -11,6 +11,7 @@
 #include <queue>
 #include <set>
 #include <string>
+#include <time.h>
 
 struct DeviceConnection {
     int fd;
@@ -44,6 +45,7 @@ private:
     void checkStaleConnections();
     void sendHeaterState(int fd, const std::string &name);
     void checkWifi();
+    void checkLostDevices();
 
     bool loadState();
     void saveState();
@@ -67,6 +69,8 @@ private:
 
     uint64_t m_message_counter;
     std::map<uint64_t,uint64_t> m_heater_counter; /* MAC addr -> counter */
+    std::map<uint64_t, time_t> m_heater_last_seen; /* MAC addr -> timestamp */
+    Timer m_lost_devices_timer;
 };
 
 #endif
