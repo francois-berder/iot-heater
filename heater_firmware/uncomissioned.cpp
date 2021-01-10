@@ -32,9 +32,18 @@ void setup_uncommissioned(void)
     digitalWrite(LED1_PIN, 1);
     pinMode(BUTTON_PIN, INPUT_PULLUP);
 
+    /*
+     * Do not rely on external pull-up/pull-down to set
+     * the heater state.
+     * Force heater in DEFROST mode while in uncommissioning
+     * mode.
+     */
+    pinMode(POSITIVE_OUTPUT_PIN, INPUT);
+    pinMode(NEGATIVE_OUTPUT_PIN, INPUT);
+
     /* Create Wifi AP */
     byte mac[6];
-    WiFi.macAddress(mac);
+    WiFi.softAPmacAddress(mac);
     char ssid[32];
     sprintf(ssid, "heater-%02X%02X%02X%02X%02X%02X",
             mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -84,6 +93,20 @@ void setup_uncommissioned(void)
 
 void loop_uncommissioned(void)
 {
+    /* Blink LED if someone connected to AP */
+    {
+        static unsigned long counter = 0;
+        if (wifi_softap_get_station_num() == 0) {
+          digitalWrite(LED1_PIN, 1);
+          counter = 0;
+        } else {
+          if (millis() - counter > 100) {
+              digitalWrite(LED1_PIN, !digitalRead(LED1_PIN));
+              counter = millis();
+          }
+        }
+    }
+
     /* Clear configuration if button is pressed for a while */
     if (digitalRead(BUTTON_PIN) == 0) {
         if (!button_pressed) {
@@ -100,10 +123,13 @@ void loop_uncommissioned(void)
     if (joining_wifi_network) {
         server.end();
         dns_server.stop();
+        Serial.print("Joining network ");
+        Serial.println(wifi_ssid);
         WiFi.mode(WIFI_STA);
         WiFi.begin(wifi_ssid, wifi_password);
         while (WiFi.status() != WL_CONNECTED && (millis() - joining_wifi_network_start) < JOIN_NETWORK_TIMEOUT) {
             delay(500);
+            Serial.print(".");
         }
         if (WiFi.status() == WL_CONNECTED) {
             settings_create(device_name, wifi_ssid, wifi_password);

@@ -13,28 +13,28 @@
 #include <NTPClient.h>
 #include <WiFiUdp.h>
 
-#define BUTTON_PRESS_TIMEOUT  (10000)    /* Timeout in milliseconds */
-#define WIFI_JOIN_TIMEOUT     (15000)    /* Timeout in milliseconds */
-#define HEATER_STATE_TIMEOUT  (1000)
-
-#define NTP_ADDRESS  "europe.pool.ntp.org"
+#define BUTTON_PRESS_TIMEOUT  (10000)    /* in milliseconds */
+#define WIFI_JOIN_TIMEOUT     (15000)    /* in milliseconds */
+#define HEATER_STATE_TIMEOUT  (1000)     /* in milliseconds */
 
 static WiFiEventHandler wifi_connected_handler;
 static WiFiEventHandler wifi_disconnected_handler;
 static WiFiEventHandler wifi_got_ip_handler;
 static bool connected;
 
-static AsyncWebServer server(80);
+#define WEB_SERVER_PORT       (80)
+static AsyncWebServer server(WEB_SERVER_PORT);
 static char webpage_buffer[512];
 static bool button_pressed;
 static unsigned long button_pressed_start;
 
+#define NTP_UPDATE_INTERVAL             (15 * 60 * 1000)  /* in milliseconds */
 static WiFiUDP ntpUDP;
-static NTPClient ntpClient(ntpUDP, NTP_ADDRESS);
+static NTPClient ntpClient(ntpUDP);
 
-#define SEND_HEATER_STATE_REQ_PERIOD    (30000)     /* in milliseconds */
+#define SEND_HEATER_STATE_REQ_PERIOD    (60 * 1000)     /* in milliseconds */
 
-#define SEND_HEATER_STATE_REQ_EV        (1)
+#define SEND_HEATER_STATE_REQ_EV        (1U << 0)
 
 static Ticker send_heater_state_req_ticker;
 static uint32_t events;
@@ -49,12 +49,13 @@ enum led_state_t {
 };
 enum led_state_t led_state;
 
-#define base_station_hostname       "basestation.lan"
+#define BASE_STATION_HOSTNAME       "basestation"
 #define BASE_STATION_PORT           (32322)
-static unsigned int base_station_failure;
-#define MAX_BASE_STATION_FAILURE    (15)
+static unsigned int request_state_failure_count;
+#define REQUEST_STATE_FAILURE_THRESHOLD    (15)
 
 static uint8_t heater_state;
+#define DEFAULT_HEATER_STATE        (HEATER_DEFROST)
 
 static uint64_t msg_counter;
 enum message_type_t {
@@ -62,11 +63,12 @@ enum message_type_t {
     HEATER_STATE_REPLY  = 2,
 };
 
-struct message_t {
+/* 64-byte message */
+struct __attribute__((packed)) message_t {
     struct __attribute__((packed)) message_header_t {
         uint8_t protocol_version;
         uint8_t msg_type;
-        uint8_t mac[6];
+        byte mac[6];
         uint64_t counter;
     } header;
     uint8_t data[48];
@@ -123,6 +125,12 @@ static void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
 
 static void wifi_got_ip(const WiFiEventStationModeGotIP& event)
 {
+    char buf[40];
+    char buf2[32];
+    WiFi.localIP().toString().toCharArray(buf2, sizeof(buf2) - 1);
+    strcpy(buf, "IP: ");
+    strcat(buf, buf2);
+    log_to_serial(buf);
     char name[32];
     settings_get_name(name);
 
@@ -139,17 +147,17 @@ static void apply_heater_state(void)
 {
     switch (heater_state) {
     case HEATER_DEFROST:
-        log_to_serial("Heater in defrost mode");
+        log_to_serial("Heater set in defrost mode");
         digitalWrite(POSITIVE_OUTPUT_PIN, 0);
         digitalWrite(NEGATIVE_OUTPUT_PIN, 1);
         break;
     case HEATER_ECO:
-        log_to_serial("Heater in eco mode");
+        log_to_serial("Heater set in eco mode");
         digitalWrite(POSITIVE_OUTPUT_PIN, 1);
         digitalWrite(NEGATIVE_OUTPUT_PIN, 1);
         break;
     case HEATER_COMFORT:
-        log_to_serial("Heater in comfort/on mode");
+        log_to_serial("Heater set in comfort/on mode");
         digitalWrite(POSITIVE_OUTPUT_PIN, 0);
         digitalWrite(NEGATIVE_OUTPUT_PIN, 0);
         break;
@@ -163,6 +171,7 @@ static void apply_heater_state(void)
 
 void setup_commissioned()
 {
+    /* Init pins */
     pinMode(LED1_PIN, OUTPUT);
     digitalWrite(LED1_PIN, 1);
 
@@ -170,51 +179,72 @@ void setup_commissioned()
 
     pinMode(POSITIVE_OUTPUT_PIN, OUTPUT);
     pinMode(NEGATIVE_OUTPUT_PIN, OUTPUT);
-
-    if (settings_check()) {
-        log_to_serial("Settings check fail. Restarting in uncommissioned mode.");
-        settings_erase();
-        ESP.restart();
-    }
-
-    msg_counter = ESP8266TrueRandom.random();
-    msg_counter <<= 32;
-
-    led_state = DISCONNECTED_FROM_WIFI;
-    leds_ticker.attach_ms(BLINK_PERIOD, update_leds);
-
     /*
      * Put heater in defrost mode. This is the safest option as
      * we do not know how long we stayed off
      * and whether the base station is up and running. If it is,
      * we will soon get the heater state.
      */
-    heater_state = HEATER_DEFROST;
+    heater_state = DEFAULT_HEATER_STATE;
     apply_heater_state();
 
+    /* Load settings */
+    if (!settings_check()) {
+        log_to_serial("Settings check fail. Restarting in uncommissioned mode.");
+        settings_erase();
+        ESP.restart();
+    } else {
+        log_to_serial("Settings check OK.");
+    }
+
+    char name[32];
     char ssid[64];
-    settings_get_ssid(ssid);
     char password[64];
+    settings_get_name(name);
+    settings_get_ssid(ssid);
     settings_get_password(password);
+
+    {
+      char buffer[64];
+      sprintf(buffer, "Heater controller name: \"%s\"", name);
+      log_to_serial(buffer);
+    }
+
+    /* Init message counter */
+    {
+      msg_counter = ESP8266TrueRandom.random();
+      msg_counter &= 0x0FFFFFFF;  /* Clear highest 4 bits, to ensure that msg_counter will not overflow */
+      msg_counter <<= 32;
+      char buffer[64];
+      sprintf(buffer, "Message counter set to %llu", msg_counter);
+      log_to_serial(buffer);
+    }
+
+    led_state = DISCONNECTED_FROM_WIFI;
+    leds_ticker.attach_ms(BLINK_PERIOD, update_leds);
+
+    /* Init WiFi */
+    Serial.println(String("MAC address: ") + String(WiFi.macAddress()));
     wifi_connected_handler = WiFi.onStationModeConnected(wifi_connected);
     wifi_disconnected_handler = WiFi.onStationModeDisconnected(wifi_disconnected);
     wifi_got_ip_handler = WiFi.onStationModeGotIP(wifi_got_ip);
     WiFi.mode(WIFI_STA);
-    char name[32];
-    settings_get_name(name);
-    WiFi.hostname(name);
+    WiFi.hostname(String("heater-") + name);
     WiFi.begin(ssid, password);
     {
-        char buffer[128];
-        sprintf(buffer, "Connecting to Wifi: %s", ssid);
-        Serial.println(buffer);
+      char buffer[64];
+      sprintf(buffer, "Connecting to Wifi network: \"%s\"", ssid);
+      log_to_serial(buffer);
     }
 
     if (WiFi.status() == WL_CONNECTED) {
         Serial.println("Connected to WiFi");
+        Serial.print("IP: ");
+        Serial.println(WiFi.localIP());
         connected = true;
     }
 
+    ntpClient.setUpdateInterval(NTP_UPDATE_INTERVAL);
     ntpClient.begin();
 
     /* Spawn web server */
@@ -238,7 +268,14 @@ void setup_commissioned()
     );
     server.begin();
 
-    send_heater_state_req_ticker.attach_ms(SEND_HEATER_STATE_REQ_PERIOD, send_heater_state_req_callback);
+    /* Add a little bit of jitter so that not all heater controllers
+     *  are contacting the base station at the same time. This scenario
+     *  is likely to happen when you get a power cut and it comes back
+     *  on.
+     */
+    send_heater_state_req_ticker.attach_ms(
+      SEND_HEATER_STATE_REQ_PERIOD + 50 * ((msg_counter >> 32) & 0xF),
+      send_heater_state_req_callback);
 }
 
 void loop_commissioned()
@@ -252,6 +289,7 @@ void loop_commissioned()
             button_pressed = true;
             button_pressed_start = millis();
         } else if (millis() - button_pressed_start >= BUTTON_PRESS_TIMEOUT) {
+            log_to_serial("Factory reset");
             settings_erase();
             ESP.restart();
         }
@@ -263,8 +301,8 @@ void loop_commissioned()
         events &= ~SEND_HEATER_STATE_REQ_EV;
 
         WiFiClient client;
-        if (client.connect(base_station_hostname, BASE_STATION_PORT)) {
-            log_to_serial("Sending heater state request");
+        if (client.connect(BASE_STATION_HOSTNAME, BASE_STATION_PORT)) {
+            log_to_serial("Sending heater state request to base station");
 
             struct message_t heater_state_req_msg;
             memset(&heater_state_req_msg, 0xFF, sizeof(heater_state_req_msg));
@@ -275,7 +313,6 @@ void loop_commissioned()
             settings_get_name((char *)heater_state_req_msg.data);
 
             client.write((uint8_t *)&heater_state_req_msg, sizeof(heater_state_req_msg));
-            base_station_failure = 0;
 
             unsigned long start = millis();
             while (millis() - start < HEATER_STATE_TIMEOUT) {
@@ -284,15 +321,25 @@ void loop_commissioned()
             }
             if (millis() - start > HEATER_STATE_TIMEOUT) {
                 log_to_serial("Timeout while waiting for heater state reply from base station");
+                request_state_failure_count++;
             } else {
                 struct message_t heater_state_reply_msg;
                 client.read((uint8_t *)&heater_state_reply_msg, sizeof(heater_state_reply_msg));
 
                 if (heater_state_reply_msg.header.protocol_version != 1) {
-                    log_to_serial("Discarding message: protocol version not supported");
+                    char buffer[128];
+                    sprintf(buffer, "Discarding message: protocol version %u not supported", heater_state_reply_msg.header.protocol_version);
+                    log_to_serial(buffer);
+                    request_state_failure_count++;
                 } else if (heater_state_reply_msg.header.msg_type == REQ_HEATER_STATE) {
                     log_to_serial("Discarding message: not expecting REQ_HEATER_STATE from base station");
-                } else if (heater_state_reply_msg.header.msg_type == HEATER_STATE_REPLY) {
+                    request_state_failure_count++;
+                } else if (heater_state_reply_msg.header.msg_type != HEATER_STATE_REPLY) {
+                    char buffer[128];
+                    sprintf(buffer, "Invalid message type %u", heater_state_reply_msg.header.msg_type);
+                    log_to_serial(buffer);
+                    request_state_failure_count++;
+                } else {
                     uint8_t new_heater_state = heater_state_reply_msg.data[0];
                     if (heater_state != new_heater_state) {
                         switch (new_heater_state) {
@@ -300,38 +347,44 @@ void loop_commissioned()
                         case HEATER_DEFROST:
                         case HEATER_ECO:
                         case HEATER_COMFORT:
+                            request_state_failure_count = 0;
+                            led_state = CONNECTED_TO_BASE_STATION;
                             heater_state = new_heater_state;
                             apply_heater_state();
                             break;
                         default:
-                            log_to_serial("Received invalid heater state from base station");
+                            {
+                              char buffer[64];
+                              sprintf(buffer, "Received invalid heater state %d from base station", new_heater_state);
+                              log_to_serial(buffer);
+                              request_state_failure_count++;
+                            }
                             break;
                         }
                     }
-                } else {
-                    led_state = CONNECTED_TO_BASE_STATION;
                 }
             }
         } else {
             log_to_serial("Failed to connect to base station");
-            if (base_station_failure < MAX_BASE_STATION_FAILURE)
-                base_station_failure++;
-
-            if (base_station_failure == MAX_BASE_STATION_FAILURE) {
-                log_to_serial("Too many failures while requesting heater state from base station");
-
-                /*
-                 * It seems that the base station is down.
-                 * Let's put the heater in defrost mode.
-                 */
-                heater_state = HEATER_DEFROST;
-                apply_heater_state();
-
-                led_state = DISCONNECTED_FROM_BASE_STATION;
-            }
+            request_state_failure_count++;
         }
 
         client.stop();
+    }
+
+    if (request_state_failure_count == REQUEST_STATE_FAILURE_THRESHOLD) {
+        char buffer[128];
+        sprintf(buffer, "Too many failures (count: %d) while requesting heater state from base station", request_state_failure_count);
+        log_to_serial(buffer);
+
+        /*
+         * It seems that the base station is down or not running properly.
+         * Let's put the heater in defrost mode.
+         */
+        heater_state = DEFAULT_HEATER_STATE;
+        apply_heater_state();
+
+        led_state = DISCONNECTED_FROM_BASE_STATION;
     }
 
     wifi_set_sleep_type(LIGHT_SLEEP_T);

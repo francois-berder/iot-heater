@@ -102,10 +102,10 @@ bool settings_check()
         return false;
 
     for (int i = 0; i < strlen(settings.name); ++i) {
-        bool is_valid = ('a' <= settings.name[i] && settings.name[i] <= 'z')
-                     || ('A' <= settings.name[i] && settings.name[i] <= 'Z')
-                     || ('0' <= settings.name[i] && settings.name[i] <= '9');
-        if (!is_valid)
+        bool is_char_valid = ('a' <= settings.name[i] && settings.name[i] <= 'z')
+                          || ('A' <= settings.name[i] && settings.name[i] <= 'Z')
+                          || ('0' <= settings.name[i] && settings.name[i] <= '9');
+        if (!is_char_valid)
             return false;
     }
 
