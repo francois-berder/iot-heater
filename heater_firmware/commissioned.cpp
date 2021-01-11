@@ -91,7 +91,7 @@ static void update_leds()
         }
         break;
     case CONNECTED_TO_BASE_STATION:
-        digitalWrite(LED1_PIN, digitalRead(BUTTON_PIN));
+        digitalWrite(LED1_PIN, !digitalRead(BUTTON_PIN));
         break;
     };
 
