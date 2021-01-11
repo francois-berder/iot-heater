@@ -289,8 +289,21 @@ void loop_commissioned()
             button_pressed = true;
             button_pressed_start = millis();
         } else if (millis() - button_pressed_start >= BUTTON_PRESS_TIMEOUT) {
+            int i;
+
             log_to_serial("Factory reset");
             settings_erase();
+
+            /*
+             * Flash a bit the LEDs a few times to provide some feedback
+             * to the user that the device is restarting.
+             */
+            digitalWrite(LED1_PIN, 0);
+            for (i = 0; i < 3; ++i) {
+              delay(100);
+              digitalWrite(LED1_PIN, !digitalRead(LED1_PIN));
+            }
+
             ESP.restart();
         }
     } else {
