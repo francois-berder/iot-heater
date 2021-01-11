@@ -107,7 +107,8 @@ m_wifi_not_good_counter(0),
 m_message_counter(0),
 m_heater_counter(),
 m_heater_last_seen(),
-m_lost_devices_timer()
+m_lost_devices_timer(),
+m_heater_name()
 {
     if (!loadState())
         saveState();
@@ -302,6 +303,9 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
             SMSSender::instance().sendSMS(m_emergency_phone, buf);
         }
         m_heater_counter[mac_addr] = header.counter;
+
+        if (!name.empty())
+            m_heater_name[mac_addr] = name;
 
         /* Record last time we got a correct request from the device */
         m_heater_last_seen[mac_addr] = time(NULL);
@@ -809,41 +813,89 @@ void BaseStation::checkLostDevices()
     read(fds[0].fd, &_, sizeof(_));
 
     time_t now = time(NULL);
+    std::list<uint64_t> lost_devices;
     auto it = m_heater_last_seen.begin();
     while (it != m_heater_last_seen.end()) {
-
         if (now - it->second < DEVICE_LOST_THRESHOLD) {
             ++it;
             continue;
         }
 
-        uint8_t mac_addr[6];
-        mac_addr[0] = it->first >> 40;
-        mac_addr[1] = it->first >> 32;
-        mac_addr[2] = it->first >> 24;
-        mac_addr[3] = it->first >> 16;
-        mac_addr[4] = it->first >> 8;
-        mac_addr[5] = it->first;
-
-        char buf[128];
-        sprintf(buf, "Did not receive valid message from device %02X:%02X:%02X:%02X:%02X:%02X for more than %d seconds",
-            mac_addr[0],
-            mac_addr[1],
-            mac_addr[2],
-            mac_addr[3],
-            mac_addr[4],
-            mac_addr[5],
-            DEVICE_LOST_THRESHOLD);
-        Logger::warn(buf);
-
-        if (!m_emergency_phone.empty()) {
-            char buf2[128];
-            strcpy(buf2, "WARNING! ");
-            strcat(buf2, buf);
-            SMSSender::instance().sendSMS(m_emergency_phone, buf2);
-        }
+        lost_devices.push_back(it->first);
         it = m_heater_last_seen.erase(it);
     }
+
+    for (uint64_t it : lost_devices) {
+            uint8_t mac_addr[6];
+            mac_addr[0] = it >> 40;
+            mac_addr[1] = it >> 32;
+            mac_addr[2] = it >> 24;
+            mac_addr[3] = it >> 16;
+            mac_addr[4] = it >> 8;
+            mac_addr[5] = it;
+
+        auto name = m_heater_name.find(it);
+
+        char buf[256];
+        if (name == m_heater_name.end() && !name->second.empty()) {
+            sprintf(buf, "Did not receive valid message from device %02X:%02X:%02X:%02X:%02X:%02X for more than %d seconds",
+                mac_addr[0],
+                mac_addr[1],
+                mac_addr[2],
+                mac_addr[3],
+                mac_addr[4],
+                mac_addr[5],
+                DEVICE_LOST_THRESHOLD);
+        } else {
+            sprintf(buf, "Did not receive valid message from device %s (MAC: %02X:%02X:%02X:%02X:%02X:%02X) for more than %d seconds",
+                name->second.c_str(),
+                mac_addr[0],
+                mac_addr[1],
+                mac_addr[2],
+                mac_addr[3],
+                mac_addr[4],
+                mac_addr[5],
+                DEVICE_LOST_THRESHOLD);
+        }
+        Logger::warn(buf);
+    }
+
+    if (!m_emergency_phone.empty() && !lost_devices.empty()) {
+        std::stringstream ss;
+        if (lost_devices.size() > 1)
+            ss << "WARNING! Lost connection with %d devices: ";
+        else
+            ss << "WARNING! Lost connection with one device: ";
+
+        for (uint64_t it : lost_devices) {
+            auto name = m_heater_name.find(it);
+            if (name != m_heater_name.end() && !name->second.empty()) {
+                ss << name->second;
+            } else {
+                char buf[32];
+                uint8_t mac_addr[6];
+                mac_addr[0] = it >> 40;
+                mac_addr[1] = it >> 32;
+                mac_addr[2] = it >> 24;
+                mac_addr[3] = it >> 16;
+                mac_addr[4] = it >> 8;
+                mac_addr[5] = it;
+                sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
+                        mac_addr[0],
+                        mac_addr[1],
+                        mac_addr[2],
+                        mac_addr[3],
+                        mac_addr[4],
+                        mac_addr[5]);
+                ss << buf;
+            }
+ 
+            ss << ',';
+        }
+
+        SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
+    }
+
 }
 
 bool BaseStation::loadState()

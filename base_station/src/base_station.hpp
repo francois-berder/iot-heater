@@ -71,6 +71,7 @@ private:
     std::map<uint64_t,uint64_t> m_heater_counter; /* MAC addr -> counter */
     std::map<uint64_t, time_t> m_heater_last_seen; /* MAC addr -> timestamp */
     Timer m_lost_devices_timer;
+    std::map<uint64_t, std::string> m_heater_name; /* MAC addr -> name */
 };
 
 #endif
