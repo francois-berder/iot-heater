@@ -280,6 +280,25 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
                 | ((uint64_t)header.mac_addr[4] << 8LU)
                 | ((uint64_t)header.mac_addr[5]);
 
+        {
+            std::stringstream ss;
+            ss << "Received heater state request from device ";
+            if (name.empty()) {
+                char buf[32];
+                sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
+                        header.mac_addr[0],
+                        header.mac_addr[1],
+                        header.mac_addr[2],
+                        header.mac_addr[3],
+                        header.mac_addr[4],
+                        header.mac_addr[5]);
+                ss << buf;
+            } else {
+                ss << name;
+            }
+            Logger::debug(ss.str());
+        }
+
         auto it = m_heater_counter.find(mac_addr);
         if (it != m_heater_counter.end()
         &&  (uint64_t)(header.counter - it->second) > 3LLU) {
@@ -313,23 +332,29 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
         sendHeaterState(conn.fd, name);
     } else if (header.type == MessageType::HEATER_STATE_REPLY) {
         std::stringstream ss;
-        ss << "Ignoring HEATER_STATE_REPLY message from device "
-        << std::hex << header.mac_addr[0] << ':'
-        << std::hex << header.mac_addr[1] << ':'
-        << std::hex << header.mac_addr[2] << ':'
-        << std::hex << header.mac_addr[3] << ':'
-        << std::hex << header.mac_addr[4] << ':'
-        << std::hex << header.mac_addr[5];
+        ss << "Ignoring HEATER_STATE_REPLY message from device ";
+        char buf[32];
+        sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
+                header.mac_addr[0],
+                header.mac_addr[1],
+                header.mac_addr[2],
+                header.mac_addr[3],
+                header.mac_addr[4],
+                header.mac_addr[5]);
+        ss << buf;
         Logger::err(ss.str());
     } else {
         std::stringstream ss;
-        ss << "Received unknown message type " << header.type << " from device "
-        << std::hex << header.mac_addr[0] << ':'
-        << std::hex << header.mac_addr[1] << ':'
-        << std::hex << header.mac_addr[2] << ':'
-        << std::hex << header.mac_addr[3] << ':'
-        << std::hex << header.mac_addr[4] << ':'
-        << std::hex << header.mac_addr[5];
+        ss << "Received unknown message type " << header.type << " from device ";
+        char buf[32];
+        sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
+                header.mac_addr[0],
+                header.mac_addr[1],
+                header.mac_addr[2],
+                header.mac_addr[3],
+                header.mac_addr[4],
+                header.mac_addr[5]);
+        ss << buf;
         Logger::warn(ss.str());
     }
 }

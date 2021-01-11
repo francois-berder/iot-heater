@@ -114,7 +114,7 @@ void DeviceServer::run()
 
             std::stringstream ss;
             ss << "New device connection from " << inet_ntoa(addr.sin_addr);
-            Logger::info(ss.str());
+            Logger::debug(ss.str());
 
             if (m_callback)
                 m_callback(client_fd);
