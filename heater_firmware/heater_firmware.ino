@@ -1,17 +1,7 @@
 #include "commissioned.h"
 #include "settings.h"
 #include "uncommissioned.h"
-
-#define xstr(s) str(s)
-#define str(s) #s
-
-#ifndef GIT_HASH
-#define GIT_HASH    "unknown"
-#endif
-
-#ifndef BUILD_TIME
-#define BUILD_TIME  "unknown"
-#endif
+#include "version.h"
 
 bool commissioned;
 
@@ -24,7 +14,7 @@ void setup()
         sprintf(buffer, "\nHeater controller (serial: %08X) ", ESP.getChipId());
         Serial.println(buffer);
     }
-    Serial.println("Firmware version: " xstr(GIT_HASH) " - " xstr(BUILD_TIME));
+    Serial.println("Firmware version: " FW_VERSION);
 
     commissioned = settings_load();
 

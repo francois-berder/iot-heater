@@ -3,6 +3,7 @@
 #include "settings.h"
 #include "Arduino.h"
 #include "Ticker.h"
+#include "version.h"
 #include "webpages.h"
 #include <DNSServer.h>
 #include <ESP8266WiFi.h>
@@ -14,6 +15,7 @@
 
 #define DNS_PORT              (53)
 
+static char webpage_buffer[512];
 static AsyncWebServer server(80);
 static DNSServer dns_server;
 
@@ -63,7 +65,8 @@ void setup_uncommissioned(void)
 
     /* Spawn web server */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-            request->send_P(200, "text/html", uncommissioned_index_html);
+            sprintf(webpage_buffer, uncommissioned_index_html, ESP.getChipId(), FW_VERSION);
+            request->send_P(200, "text/html", webpage_buffer);
         }
     );
 
@@ -80,11 +83,13 @@ void setup_uncommissioned(void)
                 joining_wifi_network_start = millis();
                 joining_wifi_network = true;
             } else {
-                request->send_P(200, "text/html", uncommissioned_index_html);
+                sprintf(webpage_buffer, uncommissioned_index_html, ESP.getChipId(), FW_VERSION);
+                request->send_P(200, "text/html", webpage_buffer);
             }
         }
     } else {
-        request->send_P(200, "text/html", uncommissioned_index_html);
+        sprintf(webpage_buffer, uncommissioned_index_html, ESP.getChipId(), FW_VERSION);
+        request->send_P(200, "text/html", webpage_buffer);
       }
     }
     );

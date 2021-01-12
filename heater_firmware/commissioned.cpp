@@ -2,6 +2,7 @@
 #include "commissioned.h"
 #include "heater.h"
 #include "settings.h"
+#include "version.h"
 #include "webpages.h"
 #include "Arduino.h"
 #include "Ticker.h"
@@ -251,16 +252,16 @@ void setup_commissioned()
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         switch (heater_state) {
         case HEATER_DEFROST:
-            sprintf(webpage_buffer, commissioned_index_html, "DEFROST");
+            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "DEFROST");
             break;
         case HEATER_ECO:
-            sprintf(webpage_buffer, commissioned_index_html, "ECO");
+            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "ECO");
             break;
         case HEATER_COMFORT:
-            sprintf(webpage_buffer, commissioned_index_html, "COMFORT/ON");
+            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "COMFORT/ON");
             break;
         default:
-            sprintf(webpage_buffer, commissioned_index_html, "OFF");
+            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "OFF");
             break;
         }
             request->send_P(200, "text/html", webpage_buffer);
