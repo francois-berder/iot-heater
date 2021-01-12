@@ -268,6 +268,14 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
     memcpy(&header.counter, data, sizeof(header.counter));
     data += sizeof(header.counter);
 
+    uint64_t mac_addr;
+    mac_addr = ((uint64_t)header.mac_addr[0] << 40LU)
+            | ((uint64_t)header.mac_addr[1] << 32LU)
+            | ((uint64_t)header.mac_addr[2] << 24LU)
+            | ((uint64_t)header.mac_addr[3] << 16LU)
+            | ((uint64_t)header.mac_addr[4] << 8LU)
+            | ((uint64_t)header.mac_addr[5]);
+
     if (header.version != 1) {
         std::stringstream msg;
         msg << "Ignoring message. Version " << header.version << " not supported.";
@@ -286,34 +294,33 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
                 name += toupper(data[i++]);
         }
 
-        /* Check if device rebooted since last message */
-        uint64_t mac_addr;
-        mac_addr = ((uint64_t)header.mac_addr[0] << 40LU)
-                | ((uint64_t)header.mac_addr[1] << 32LU)
-                | ((uint64_t)header.mac_addr[2] << 24LU)
-                | ((uint64_t)header.mac_addr[3] << 16LU)
-                | ((uint64_t)header.mac_addr[4] << 8LU)
-                | ((uint64_t)header.mac_addr[5]);
-
         {
             std::stringstream ss;
-            ss << "Received heater state request from device " << name << " MAC=";
+            ss << "Received heater state request from device ";
+            if (!name.empty())
+                ss << name << " ";
+            ss << "MAC=";
             macToStr(ss, header.mac_addr);
             Logger::debug(ss.str());
         }
 
+        /* Check if device rebooted since last message */
         auto it = m_heater_counter.find(mac_addr);
         if (it != m_heater_counter.end()
         &&  (uint64_t)(header.counter - it->second) > 3LLU) {
             {
                 std::stringstream ss;
                 ss << "It seems that device ";
+                if (!name.empty())
+                    ss << name << " MAC=";
                 macToStr(ss, header.mac_addr) << " rebooted a few minutes ago";
                 Logger::warn(ss.str());
             }
             {
                 std::stringstream ss;
                 ss << "Warning!\nDevice ";
+                if (!name.empty())
+                    ss << name << " MAC=";
                 macToStr(ss, header.mac_addr);
                 ss << " probably rebooted a few minutes ago.",
                 SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
@@ -331,11 +338,17 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
     } else if (header.type == MessageType::HEATER_STATE_REPLY) {
         std::stringstream ss;
         ss << "Ignoring HEATER_STATE_REPLY message from device ";
+        auto name = m_heater_name.find(mac_addr);
+        if (name != m_heater_name.end() && !name->second.empty())
+            ss << name->second << " ";
         macToStr(ss, header.mac_addr);
         Logger::err(ss.str());
     } else {
         std::stringstream ss;
         ss << "Received unknown message type " << header.type << " from device ";
+        auto name = m_heater_name.find(mac_addr);
+        if (name != m_heater_name.end() && !name->second.empty())
+            ss << name->second << " ";
         macToStr(ss, header.mac_addr);
         Logger::warn(ss.str());
     }
