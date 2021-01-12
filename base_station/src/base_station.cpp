@@ -150,8 +150,8 @@ BaseStation::~BaseStation()
 void BaseStation::process()
 {
     handleConnections();
-    handleTimers();
     parseCommands();
+    checkStaleConnections();
     checkWifi();
     checkLostDevices();
 }
@@ -232,7 +232,7 @@ void BaseStation::handleConnections()
     delete[] fds;
 }
 
-void BaseStation::handleTimers()
+void BaseStation::checkStaleConnections()
 {
     struct pollfd fds[1];
 
@@ -241,17 +241,21 @@ void BaseStation::handleTimers()
 
     int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), 0);
     if (ret > 0) {
-        for (unsigned i = 0; i < sizeof(fds)/sizeof(fds[0]); ++i) {
-            if (!(fds[i].revents & POLLIN))
-                continue;
+        /* Dummy read with timer fd to clear event */
+        uint64_t _;
+        read(fds[0].fd, &_, sizeof(_));
 
-            uint64_t tmp;
-            ret = read(fds[i].fd, &tmp, sizeof(tmp));
-            if (ret < 0)
-                continue;
-
-            if (i == 0)
-                checkStaleConnections();
+        std::lock_guard<std::mutex> guard(m_connections_mutex);
+        std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
+        auto itor = m_connections.begin();
+        while (itor != m_connections.end()) {
+            if (std::chrono::duration_cast<std::chrono::minutes>(t - itor->last_seen) > std::chrono::minutes(30)) {
+                Logger::info("Removing stale connection");
+                close(itor->fd);
+                itor = m_connections.erase(itor);
+            } else {
+                ++itor;
+            }
         }
     }
 }
@@ -711,22 +715,6 @@ void BaseStation::sendVersion(const std::string &to)
     content << "base_station-" << GIT_HASH << '.' << BUILD_TIME;
 
     SMSSender::instance().sendSMS(to, content.str());
-}
-
-void BaseStation::checkStaleConnections()
-{
-    std::lock_guard<std::mutex> guard(m_connections_mutex);
-    std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
-    auto itor = m_connections.begin();
-    while (itor != m_connections.end()) {
-        if (std::chrono::duration_cast<std::chrono::minutes>(t - itor->last_seen) > std::chrono::minutes(30)) {
-            Logger::info("Removing stale connection");
-            close(itor->fd);
-            itor = m_connections.erase(itor);
-        } else {
-            ++itor;
-        }
-    }
 }
 
 void BaseStation::sendHeaterState(int fd, const std::string &name)

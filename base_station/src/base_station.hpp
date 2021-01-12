@@ -37,7 +37,6 @@ public:
 
 private:
     void handleConnections();
-    void handleTimers();
 
     void parseMessage(DeviceConnection &conn, uint8_t *data);
     void parseCommands();
