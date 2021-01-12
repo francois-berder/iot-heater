@@ -296,6 +296,16 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
             unsigned int i = 0;
             while (data[i] != 0xFF && data[i] != '\0')
                 name += toupper(data[i++]);
+
+            if (!name.empty()) {
+                if (!check_heater_name(name)) {
+                    std::stringstream ss;
+                    ss << "Invalid name parameter in HEATER_STATE_REQ from device ";
+                    macToStr(ss, header.mac_addr);
+                    Logger::err(ss.str());
+                    name.clear();
+                }
+            }
         }
 
         {
