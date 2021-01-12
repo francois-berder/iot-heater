@@ -8,6 +8,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#define MODULE_3G_DEVPATH "/dev/ttyUSB2"
 #define SMS_OUTGOING_DIR "/var/spool/sms/outgoing/"
 
 SMSSender::SMSSender():
@@ -26,6 +27,20 @@ SMSSender& SMSSender::instance()
 void SMSSender::sendSMS(const std::string &to, const std::string &content)
 {
     std::lock_guard<std::mutex> guard(m_mutex);
+
+    /* Check if 3G module is connected.
+     * We do not want to write the message to a file
+     * otherwise if the user connects the 3G module
+     * again, the emergency phone might get overflowed with
+     * tons of messages.
+     */
+    if (access(MODULE_3G_DEVPATH, F_OK ) != 0) {
+        std::stringstream ss;
+        ss << "3G module not detected (no ";
+        ss << MODULE_3G_DEVPATH << "found). Discarding text message.";
+        Logger::err(ss.str());
+        return;
+    }
 
     std::ofstream file;
 
