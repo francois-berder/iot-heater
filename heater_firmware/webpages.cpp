@@ -44,6 +44,8 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
   Firmware version: %s
   <br>
   Heater state: %s
+  <br>
+  Last heater state reply from base station: %u
 </body>
 </html>
 )rawliteral";

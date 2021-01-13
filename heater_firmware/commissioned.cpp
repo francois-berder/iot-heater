@@ -32,6 +32,7 @@ static unsigned long button_pressed_start;
 #define NTP_UPDATE_INTERVAL             (15 * 60 * 1000)  /* in milliseconds */
 static WiFiUDP ntpUDP;
 static NTPClient ntpClient(ntpUDP);
+static unsigned long last_heater_state_timestamp;
 
 #define SEND_HEATER_STATE_REQ_PERIOD    (60 * 1000)     /* in milliseconds */
 
@@ -252,16 +253,16 @@ void setup_commissioned()
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
         switch (heater_state) {
         case HEATER_DEFROST:
-            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "DEFROST");
+            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "DEFROST", last_heater_state_timestamp);
             break;
         case HEATER_ECO:
-            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "ECO");
+            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "ECO", last_heater_state_timestamp);
             break;
         case HEATER_COMFORT:
-            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "COMFORT/ON");
+            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "COMFORT/ON", last_heater_state_timestamp);
             break;
         default:
-            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "OFF");
+            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "OFF", last_heater_state_timestamp);
             break;
         }
             request->send_P(200, "text/html", webpage_buffer);
@@ -364,6 +365,7 @@ void loop_commissioned()
                             request_state_failure_count = 0;
                             led_state = CONNECTED_TO_BASE_STATION;
                             heater_state = new_heater_state;
+                            last_heater_state_timestamp = ntpClient.getEpochTime();
                             apply_heater_state();
                             break;
                         default:
