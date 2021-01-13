@@ -363,28 +363,28 @@ void loop_commissioned()
                     request_state_failure_since_boot_counter++;
                 } else {
                     uint8_t new_heater_state = heater_state_reply_msg.data[0];
-                    if (heater_state != new_heater_state) {
-                        switch (new_heater_state) {
-                        case HEATER_OFF:
-                        case HEATER_DEFROST:
-                        case HEATER_ECO:
-                        case HEATER_COMFORT:
-                            request_state_failure_count = 0;
-                            led_state = CONNECTED_TO_BASE_STATION;
+                    switch (new_heater_state) {
+                    case HEATER_OFF:
+                    case HEATER_DEFROST:
+                    case HEATER_ECO:
+                    case HEATER_COMFORT:
+                        led_state = CONNECTED_TO_BASE_STATION;
+                        last_heater_state_timestamp = ntpClient.getEpochTime();
+                        request_state_failure_count = 0;
+                        if (heater_state != new_heater_state) {
                             heater_state = new_heater_state;
-                            last_heater_state_timestamp = ntpClient.getEpochTime();
                             apply_heater_state();
-                            break;
-                        default:
-                            {
-                              char buffer[64];
-                              sprintf(buffer, "Received invalid heater state %d from base station", new_heater_state);
-                              log_to_serial(buffer);
-                              request_state_failure_count++;
-                              request_state_failure_since_boot_counter++;
-                            }
-                            break;
                         }
+                        break;
+                    default:
+                        {
+                          char buffer[64];
+                          sprintf(buffer, "Received invalid heater state %d from base station", new_heater_state);
+                          log_to_serial(buffer);
+                          request_state_failure_count++;
+                          request_state_failure_since_boot_counter++;
+                        }
+                        break;
                     }
                 }
             }
