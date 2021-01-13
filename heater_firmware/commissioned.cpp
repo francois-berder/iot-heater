@@ -21,7 +21,6 @@
 static WiFiEventHandler wifi_connected_handler;
 static WiFiEventHandler wifi_disconnected_handler;
 static WiFiEventHandler wifi_got_ip_handler;
-static bool connected;
 
 #define WEB_SERVER_PORT       (80)
 static AsyncWebServer server(WEB_SERVER_PORT);
@@ -114,7 +113,6 @@ static void log_to_serial(char *str)
 static void wifi_connected(const WiFiEventStationModeConnected& event)
 {
     log_to_serial("Connected to WiFi");
-    connected = true;
     events |= SEND_HEATER_STATE_REQ_EV;
     led_state = DISCONNECTED_FROM_BASE_STATION;
 }
@@ -122,7 +120,6 @@ static void wifi_connected(const WiFiEventStationModeConnected& event)
 static void wifi_disconnected(const WiFiEventStationModeDisconnected& event)
 {
     log_to_serial("Disonnected from WiFi");
-    connected = false;
     led_state = DISCONNECTED_FROM_WIFI;
 }
 
@@ -245,7 +242,6 @@ void setup_commissioned()
         Serial.println("Connected to WiFi");
         Serial.print("IP: ");
         Serial.println(WiFi.localIP());
-        connected = true;
     }
 
     ntpClient.setUpdateInterval(NTP_UPDATE_INTERVAL);
@@ -318,7 +314,7 @@ void loop_commissioned()
         button_pressed = false;
     }
 
-    if (connected && (events & SEND_HEATER_STATE_REQ_EV)) {
+    if (WiFi.status() == WL_CONNECTED && (events & SEND_HEATER_STATE_REQ_EV)) {
         events &= ~SEND_HEATER_STATE_REQ_EV;
 
         WiFiClient client;
