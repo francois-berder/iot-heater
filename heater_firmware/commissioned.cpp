@@ -252,7 +252,7 @@ void setup_commissioned()
     ntpClient.begin();
 
     /* Spawn web server */
-    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    server.on("/", HTTP_GET, [name](AsyncWebServerRequest *request){
         char heater_state_str[16];
         switch (heater_state) {
         case HEATER_DEFROST: strcpy(heater_state_str, "DEFROST"); break;
@@ -262,6 +262,7 @@ void setup_commissioned()
         default: strcpy(heater_state_str, "UNKNOWN"); break;
         }
             sprintf(webpage_buffer, commissioned_index_html,
+                      name,
                       ESP.getChipId(),
                       FW_VERSION,
                       heater_state_str,

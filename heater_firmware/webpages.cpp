@@ -37,7 +37,7 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
   <meta name="viewport" content="width=device-width, initial-scale=1">
 </head>
 <body>
-  <h1>Heater controller</h1>
+  <h1>Heater controller - %s</h1>
   <h2>Device information</h2>
   ESP8266 chip ID: %08X
   <br>
