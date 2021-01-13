@@ -16,12 +16,12 @@ const char uncommissioned_index_html[] PROGMEM = R"rawliteral(
     <h2>Registration</h2>
     <form action="/register" method="post">
         Name:<br>
-        <input type="text" name="name" maxlength="31">
+        <input type="text" name="name" maxlength="31" required="required" pattern="[A-Za-z0-9]+">
         <br>
-        Wifi name:<br>
-        <input type="text" name="ssid" maxlength="63">
+        WiFi name:<br>
+        <input type="text" name="ssid" maxlength="63" required="required">
         <br>
-        Wifi password:<br>
+        WiFi password:<br>
         <input type="password" name="password" maxlength="63">
         <br>
         <input type="submit" value="Register">
