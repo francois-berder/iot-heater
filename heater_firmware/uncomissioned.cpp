@@ -43,6 +43,9 @@ void setup_uncommissioned(void)
     pinMode(POSITIVE_OUTPUT_PIN, INPUT);
     pinMode(NEGATIVE_OUTPUT_PIN, INPUT);
 
+    /* Build webpage */
+    sprintf(webpage_buffer, uncommissioned_index_html, ESP.getChipId(), FW_VERSION);
+
     /* Create Wifi AP */
     byte mac[6];
     WiFi.softAPmacAddress(mac);
@@ -65,7 +68,6 @@ void setup_uncommissioned(void)
 
     /* Spawn web server */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-            sprintf(webpage_buffer, uncommissioned_index_html, ESP.getChipId(), FW_VERSION);
             request->send_P(200, "text/html", webpage_buffer);
         }
     );
@@ -83,12 +85,10 @@ void setup_uncommissioned(void)
                 joining_wifi_network_start = millis();
                 joining_wifi_network = true;
             } else {
-                sprintf(webpage_buffer, uncommissioned_index_html, ESP.getChipId(), FW_VERSION);
                 request->send_P(200, "text/html", webpage_buffer);
             }
         }
     } else {
-        sprintf(webpage_buffer, uncommissioned_index_html, ESP.getChipId(), FW_VERSION);
         request->send_P(200, "text/html", webpage_buffer);
       }
     }
