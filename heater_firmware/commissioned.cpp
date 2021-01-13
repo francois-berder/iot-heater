@@ -261,14 +261,17 @@ void setup_commissioned()
         case HEATER_OFF: strcpy(heater_state_str, "OFF"); break;
         default: strcpy(heater_state_str, "UNKNOWN"); break;
         }
-            sprintf(webpage_buffer, commissioned_index_html,
-                      name,
-                      ESP.getChipId(),
-                      FW_VERSION,
-                      heater_state_str,
-                      last_heater_state_timestamp,
-                      request_state_failure_since_boot_counter);
-            request->send_P(200, "text/html", webpage_buffer);
+        byte mac[6];
+        WiFi.macAddress(mac);
+        sprintf(webpage_buffer, commissioned_index_html,
+                    name,
+                    ESP.getChipId(),
+                    FW_VERSION,
+                    mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+                    heater_state_str,
+                    last_heater_state_timestamp,
+                    request_state_failure_since_boot_counter);
+        request->send_P(200, "text/html", webpage_buffer);
         }
     );
     server.begin();

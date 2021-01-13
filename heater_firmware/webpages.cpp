@@ -13,6 +13,8 @@ const char uncommissioned_index_html[] PROGMEM = R"rawliteral(
     ESP8266 chip ID: %08X
     <br>
     Firmware version: %s
+    <br>
+    AP MAC address: %02X:%02X:%02X:%02X:%02X:%02X
     <h2>Registration</h2>
     <form action="/register" method="post">
         Name:<br>
@@ -42,6 +44,8 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
   ESP8266 chip ID: %08X
   <br>
   Firmware version: %s
+  <br>
+  MAC address: %02X:%02X:%02X:%02X:%02X:%02X
   <br>
   Heater state: %s
   <br>

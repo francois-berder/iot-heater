@@ -15,7 +15,7 @@
 
 #define DNS_PORT              (53)
 
-static char webpage_buffer[768];
+static char webpage_buffer[1024];
 static AsyncWebServer server(80);
 static DNSServer dns_server;
 
@@ -43,9 +43,6 @@ void setup_uncommissioned(void)
     pinMode(POSITIVE_OUTPUT_PIN, INPUT);
     pinMode(NEGATIVE_OUTPUT_PIN, INPUT);
 
-    /* Build webpage */
-    sprintf(webpage_buffer, uncommissioned_index_html, ESP.getChipId(), FW_VERSION);
-
     /* Create Wifi AP */
     byte mac[6];
     WiFi.softAPmacAddress(mac);
@@ -65,6 +62,12 @@ void setup_uncommissioned(void)
 
     /* Start DNS server */
     dns_server.start(DNS_PORT, "www.heater.local", apIP);
+
+    /* Build webpage */
+    sprintf(webpage_buffer, uncommissioned_index_html,
+            ESP.getChipId(),
+            FW_VERSION,
+            mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
 
     /* Spawn web server */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
