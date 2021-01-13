@@ -46,6 +46,8 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
   Heater state: %s
   <br>
   Last heater state reply from base station: %u
+  <br>
+  Error count since boot: %u
 </body>
 </html>
 )rawliteral";

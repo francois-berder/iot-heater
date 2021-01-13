@@ -25,7 +25,7 @@ static bool connected;
 
 #define WEB_SERVER_PORT       (80)
 static AsyncWebServer server(WEB_SERVER_PORT);
-static char webpage_buffer[512];
+static char webpage_buffer[1024];
 static bool button_pressed;
 static unsigned long button_pressed_start;
 
@@ -55,6 +55,7 @@ enum led_state_t led_state;
 #define BASE_STATION_PORT           (32322)
 static unsigned int request_state_failure_count;
 #define REQUEST_STATE_FAILURE_THRESHOLD    (15)
+static unsigned int request_state_failure_since_boot_counter;
 
 static uint8_t heater_state;
 #define DEFAULT_HEATER_STATE        (HEATER_DEFROST)
@@ -221,6 +222,7 @@ void setup_commissioned()
       sprintf(buffer, "Message counter set to %llu", msg_counter);
       log_to_serial(buffer);
     }
+    request_state_failure_since_boot_counter = 0;
 
     led_state = DISCONNECTED_FROM_WIFI;
     leds_ticker.attach_ms(BLINK_PERIOD, update_leds);
@@ -251,20 +253,20 @@ void setup_commissioned()
 
     /* Spawn web server */
     server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+        char heater_state_str[16];
         switch (heater_state) {
-        case HEATER_DEFROST:
-            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "DEFROST", last_heater_state_timestamp);
-            break;
-        case HEATER_ECO:
-            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "ECO", last_heater_state_timestamp);
-            break;
-        case HEATER_COMFORT:
-            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "COMFORT/ON", last_heater_state_timestamp);
-            break;
-        default:
-            sprintf(webpage_buffer, commissioned_index_html, ESP.getChipId(), FW_VERSION, "OFF", last_heater_state_timestamp);
-            break;
+        case HEATER_DEFROST: strcpy(heater_state_str, "DEFROST"); break;
+        case HEATER_ECO: strcpy(heater_state_str, "ECO"); break;
+        case HEATER_COMFORT: strcpy(heater_state_str, "COMFORT/ON"); break;
+        case HEATER_OFF: strcpy(heater_state_str, "OFF"); break;
+        default: strcpy(heater_state_str, "UNKNOWN"); break;
         }
+            sprintf(webpage_buffer, commissioned_index_html,
+                      ESP.getChipId(),
+                      FW_VERSION,
+                      heater_state_str,
+                      last_heater_state_timestamp,
+                      request_state_failure_since_boot_counter);
             request->send_P(200, "text/html", webpage_buffer);
         }
     );
@@ -337,6 +339,7 @@ void loop_commissioned()
             if (millis() - start > HEATER_STATE_TIMEOUT) {
                 log_to_serial("Timeout while waiting for heater state reply from base station");
                 request_state_failure_count++;
+                request_state_failure_since_boot_counter++;
             } else {
                 struct message_t heater_state_reply_msg;
                 client.read((uint8_t *)&heater_state_reply_msg, sizeof(heater_state_reply_msg));
@@ -346,14 +349,17 @@ void loop_commissioned()
                     sprintf(buffer, "Discarding message: protocol version %u not supported", heater_state_reply_msg.header.protocol_version);
                     log_to_serial(buffer);
                     request_state_failure_count++;
+                    request_state_failure_since_boot_counter++;
                 } else if (heater_state_reply_msg.header.msg_type == REQ_HEATER_STATE) {
                     log_to_serial("Discarding message: not expecting REQ_HEATER_STATE from base station");
                     request_state_failure_count++;
+                    request_state_failure_since_boot_counter++;
                 } else if (heater_state_reply_msg.header.msg_type != HEATER_STATE_REPLY) {
                     char buffer[128];
                     sprintf(buffer, "Invalid message type %u", heater_state_reply_msg.header.msg_type);
                     log_to_serial(buffer);
                     request_state_failure_count++;
+                    request_state_failure_since_boot_counter++;
                 } else {
                     uint8_t new_heater_state = heater_state_reply_msg.data[0];
                     if (heater_state != new_heater_state) {
@@ -374,6 +380,7 @@ void loop_commissioned()
                               sprintf(buffer, "Received invalid heater state %d from base station", new_heater_state);
                               log_to_serial(buffer);
                               request_state_failure_count++;
+                              request_state_failure_since_boot_counter++;
                             }
                             break;
                         }
@@ -383,6 +390,7 @@ void loop_commissioned()
         } else {
             log_to_serial("Failed to connect to base station");
             request_state_failure_count++;
+            request_state_failure_since_boot_counter++;
         }
 
         client.stop();
