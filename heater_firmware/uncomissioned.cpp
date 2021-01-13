@@ -15,7 +15,7 @@
 
 #define DNS_PORT              (53)
 
-static char webpage_buffer[512];
+static char webpage_buffer[768];
 static AsyncWebServer server(80);
 static DNSServer dns_server;
 
