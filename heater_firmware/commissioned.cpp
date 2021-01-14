@@ -50,7 +50,7 @@ enum led_state_t {
 };
 enum led_state_t led_state;
 
-#define BASE_STATION_HOSTNAME       "basestation"
+static char basestation_addr[32];
 #define BASE_STATION_PORT           (32322)
 static unsigned int request_state_failure_count;
 #define REQUEST_STATE_FAILURE_THRESHOLD    (15)
@@ -203,10 +203,13 @@ void setup_commissioned()
     settings_get_name(name);
     settings_get_ssid(ssid);
     settings_get_password(password);
+    settings_get_basestation(basestation_addr);
 
     {
       char buffer[64];
       sprintf(buffer, "Heater controller name: \"%s\"", name);
+      log_to_serial(buffer);
+      sprintf(buffer, "Base station addr: \"%s\"", basestation_addr);
       log_to_serial(buffer);
     }
 
@@ -264,6 +267,7 @@ void setup_commissioned()
                     ESP.getChipId(),
                     FW_VERSION,
                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+                    basestation_addr,
                     heater_state_str,
                     last_heater_state_timestamp,
                     request_state_failure_since_boot_counter);
@@ -323,7 +327,7 @@ void loop_commissioned()
         events &= ~SEND_HEATER_STATE_REQ_EV;
 
         WiFiClient client;
-        if (client.connect(BASE_STATION_HOSTNAME, BASE_STATION_PORT)) {
+        if (client.connect(basestation_addr, BASE_STATION_PORT)) {
             log_to_serial("Sending heater state request to base station");
 
             struct message_t heater_state_req_msg;
@@ -393,7 +397,9 @@ void loop_commissioned()
                 }
             }
         } else {
-            log_to_serial("Failed to connect to base station");
+            char buf[128];
+            sprintf("Failed to connect to base station (hostname/ip=%s)", basestation_addr);
+            log_to_serial(buf);
             request_state_failure_count++;
             request_state_failure_since_boot_counter++;
         }

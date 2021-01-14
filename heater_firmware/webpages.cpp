@@ -26,6 +26,9 @@ const char uncommissioned_index_html[] PROGMEM = R"rawliteral(
         WiFi password:<br>
         <input type="password" name="password" maxlength="63">
         <br>
+        Base station hostname/IP address:<br>
+        <input type="text" name="basestation" value="basestation" maxlength="63">
+        <br>
         <input type="submit" value="Register">
     </form>
 </body>
@@ -46,6 +49,8 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
   Firmware version: %s
   <br>
   MAC address: %02X:%02X:%02X:%02X:%02X:%02X
+  <br>
+  Base station addr: %s
   <br>
   Heater state: %s
   <br>

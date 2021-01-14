@@ -46,7 +46,7 @@ void settings_erase(void)
     memset(&settings, 0, sizeof(settings));
 }
 
-void settings_create(String &name, String &ssid, String &password)
+void settings_create(String &name, String &ssid, String &password, String &basestation)
 {
     /* Erase EEPROM */
     for (int i = 0; i < EEPROM_LEN; ++i)
@@ -61,6 +61,7 @@ void settings_create(String &name, String &ssid, String &password)
     name.toCharArray(settings.name, sizeof(settings.name));
     ssid.toCharArray(settings.ssid, sizeof(settings.ssid));
     password.toCharArray(settings.password, sizeof(settings.password));
+    basestation.toCharArray(settings.basestation, sizeof(settings.basestation));
 
     /* Write settings */
     uint8_t *src = (uint8_t *)&settings;
@@ -96,9 +97,18 @@ void settings_get_password(char *password)
         memset(password, 0, sizeof(settings.password));
 }
 
+void settings_get_basestation(char *basestation)
+{
+    if (is_valid())
+        memcpy(basestation, settings.basestation, sizeof(settings.basestation));
+    else
+        memset(basestation, 0, sizeof(settings.basestation));
+}
+
+
 bool settings_check()
 {
-    if (strlen(settings.name) == 0 || strlen(settings.ssid) == 0)
+    if (strlen(settings.name) == 0 || strlen(settings.ssid) == 0 || strlen(settings.basestation) == 0)
         return false;
 
     for (int i = 0; i < strlen(settings.name); ++i) {

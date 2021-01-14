@@ -26,14 +26,18 @@ static bool joining_wifi_network;
 static String device_name;
 static String wifi_ssid;
 static String wifi_password;
+static String basestation_addr;
 static unsigned long joining_wifi_network_start;
 
 static bool check_params(void)
 {
-    if (device_name.length() >= 31 || wifi_ssid.length() >= 63 || wifi_password.length() >= 63)
+    if (device_name.length() >= 31
+    ||  wifi_ssid.length() >= 63
+    ||  wifi_password.length() >= 63
+    ||  basestation_addr.length() >= 31)
         return false;
 
-    if (device_name.length() == 0 || wifi_ssid.length() == 0)
+    if (device_name.length() == 0 || wifi_ssid.length() == 0 || basestation_addr.length() == 0)
         return false;
 
     for (int i = 0; i < device_name.length(); ++i) {
@@ -103,6 +107,7 @@ void setup_uncommissioned(void)
             device_name = request->getParam("name", true)->value();
             wifi_ssid = request->getParam("ssid", true)->value();
             wifi_password = request->getParam("password", true)->value();
+            basestation_addr =  request->getParam("basestation", true)->value();
             if (check_params()) {
                 joining_wifi_network_start = millis();
                 joining_wifi_network = true;
@@ -159,7 +164,7 @@ void loop_uncommissioned(void)
             Serial.print(".");
         }
         if (WiFi.status() == WL_CONNECTED) {
-            settings_create(device_name, wifi_ssid, wifi_password);
+            settings_create(device_name, wifi_ssid, wifi_password, basestation_addr);
         }
         ESP.restart();
     }

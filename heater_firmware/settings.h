@@ -9,11 +9,7 @@ struct __attribute__((packed)) settings_t {
     char name[32];
     char ssid[64];
     char password[64];
-    union {
-        /* Reserve some bytes for future usage */
-
-        char reserved[32];
-    };
+    char basestation[32];
     uint32_t magic1;
 };
 
@@ -38,8 +34,9 @@ void settings_erase(void);
  * @param[in] name
  * @param[in] ssid
  * @param[in] password
+ * @param[in] basestation
  */
-void settings_create(String &name, String &ssid, String &password);
+void settings_create(String &name, String &ssid, String &password, String &basestation);
 
 /**
  * @brief Get name
@@ -49,18 +46,25 @@ void settings_create(String &name, String &ssid, String &password);
 void settings_get_name(char *name);
 
 /**
- * @brief Get name
+ * @brief Get ssid
  *
- * @param[out] name 64 char array
+ * @param[out] ssid 64 char array
  */
 void settings_get_ssid(char *ssid);
 
 /**
  * @brief Get name
  *
- * @param[out] name 64 char array
+ * @param[out] password 64 char array
  */
 void settings_get_password(char *password);
+
+/**
+ * @brief Get basestation hostname or IP address
+ *
+ * @param[out] basestation 32 char array
+ */
+void settings_get_basestation(char *basestation);
 
 /**
  * @brief Quick settings check
