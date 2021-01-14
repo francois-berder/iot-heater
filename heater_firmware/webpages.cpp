@@ -52,6 +52,11 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
   Last heater state reply from base station: %u
   <br>
   Error count since boot: %u
+  <br>
+  <br>
+  <form action="/unregister" method="post">
+      <button name="unregister" value="unregister">Reset configuration</button>
+  </form>
 </body>
 </html>
 )rawliteral";

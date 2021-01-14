@@ -270,6 +270,11 @@ void setup_commissioned()
         request->send_P(200, "text/html", webpage_buffer);
         }
     );
+    server.on("/unregister", HTTP_POST, [] (AsyncWebServerRequest *request) {
+        log_to_serial("Factory reset (from website)");
+        settings_erase();
+        ESP.restart();
+    });
     server.begin();
 
     /* Add a little bit of jitter so that not all heater controllers
