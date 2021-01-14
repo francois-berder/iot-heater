@@ -28,6 +28,25 @@ static String wifi_ssid;
 static String wifi_password;
 static unsigned long joining_wifi_network_start;
 
+static bool check_params(void)
+{
+    if (device_name.length() >= 31 || wifi_ssid.length() >= 63 || wifi_password.length() >= 63)
+        return false;
+
+    if (device_name.length() == 0 || wifi_ssid.length() == 0)
+        return false;
+
+    for (int i = 0; i < device_name.length(); ++i) {
+        bool is_char_valid = (device_name[i] >= 'a' && device_name[i] <= 'z')
+                          || (device_name[i] >= 'A' && device_name[i] <= 'Z')
+                          || (device_name[i] >= '0' && device_name[i] <= '9');
+        if (!is_char_valid)
+            return false;
+    }
+
+    return true;
+}
+
 void setup_uncommissioned(void)
 {
     pinMode(LED1_PIN, OUTPUT);
@@ -84,7 +103,7 @@ void setup_uncommissioned(void)
             device_name = request->getParam("name", true)->value();
             wifi_ssid = request->getParam("ssid", true)->value();
             wifi_password = request->getParam("password", true)->value();
-            if (device_name.length() < 32 && wifi_ssid.length() < 64 && wifi_password.length() < 64) {
+            if (check_params()) {
                 joining_wifi_network_start = millis();
                 joining_wifi_network = true;
             } else {
