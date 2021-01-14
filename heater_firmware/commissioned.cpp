@@ -423,5 +423,5 @@ void loop_commissioned()
     }
 
     wifi_set_sleep_type(LIGHT_SLEEP_T);
-    delay(200);
+    delay(100);
 }
