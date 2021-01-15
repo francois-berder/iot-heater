@@ -179,6 +179,96 @@ void BaseStation::handleSMSCommand(const std::string &from, const std::string &c
     m_commands.emplace(from, content);
 }
 
+std::string BaseStation::buildWebpage()
+{
+    std::stringstream ss;
+
+    ss << "<html><head>\
+        <style>\
+        table, td, th {\
+        border: 1px solid black;\
+        }\
+        table {\
+        width: 100%;\
+        border-collapse: collapse;\
+        }\
+        </style>\
+        </head><body>";
+
+    ss << "<h1>Base station</h1>";
+    ss << "<h2>Heaters</h2>";
+    ss << "Default heater state: ";
+    switch (m_heater_default_state) {
+    case HEATER_OFF: ss << "OFF"; break;
+    case HEATER_DEFROST: ss << "DEFROST"; break;
+    case HEATER_ECO: ss << "ECO"; break;
+    case HEATER_COMFORT: ss << "COMFORT/ON"; break;
+    default: ss << "UNKNOWN"; break;
+    }
+    ss << "<br>";
+
+    ss << "<table>";
+    ss << "<tr>";
+    ss << "<th>Name</th>";
+    ss << "<th>MAC address</th>";
+    ss << "<th>State</th>";
+    ss << "<th>Last request timestamp</th>";
+    ss << "</tr>";
+
+    for (auto it : m_heater_last_seen) {
+        uint64_t mac = it.first;
+        time_t ts = it.second;
+
+        ss << "<tr>";
+        auto name = m_heater_name.find(mac);
+        if (name != m_heater_name.end())
+            ss << "<td>" << name->second << "</td>";
+        else
+            ss << "<td>?</td>";
+
+        {
+            char buf[32];
+            sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X",
+                    (uint8_t)((mac >> 40) & 0xFF),
+                    (uint8_t)((mac >> 32) & 0xFF),
+                    (uint8_t)((mac >> 24) & 0xFF),
+                    (uint8_t)((mac >> 16) & 0xFF),
+                    (uint8_t)((mac >> 8) & 0xFF),
+                    (uint8_t)((mac & 0xFF)));
+            ss << "<td>" << buf << "</td>";
+        }
+
+        HeaterState s;
+        auto state = m_heater_state.find(name->second);
+        if (state != m_heater_state.end())
+            s = state->second;
+        else
+            s = m_heater_default_state;
+
+        switch (s) {
+        case HEATER_OFF: ss << "<td>OFF</td>"; break;
+        case HEATER_DEFROST: ss << "<td>DEFROST</td>"; break;
+        case HEATER_ECO: ss << "<td>ECO</td>"; break;
+        case HEATER_COMFORT: ss << "<td>COMFORT/ON</td>"; break;
+        default: ss << "<td>UNKNOWN</td>"; break;
+        }
+
+        {
+            char buf[128];
+            strftime(buf, sizeof(buf) - 1, "%d-%m-%Y %H:%M:%S", localtime(&ts));
+            ss << "<td>" << buf << "</td>";
+        }
+
+        ss << "</tr>";
+    }
+
+    ss << "</table>";
+
+    ss << "</body></html>";
+
+    return ss.str();
+}
+
 void BaseStation::handleConnections()
 {
     struct pollfd *fds;

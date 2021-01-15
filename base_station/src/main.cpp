@@ -4,8 +4,9 @@
 #include "logger.hpp"
 #include "device_server.hpp"
 #include "sms_receiver.hpp"
+#include "web_server.hpp"
 
-#define DEFAULT_DEVICE_SERVER_PORT     (32322)
+#define DEFAULT_DEVICE_SERVER_PORT  (32322)
 
 static void print_help(char *program_name)
 {
@@ -67,11 +68,16 @@ int main(int argc, char **argv)
 
     SMSReceiver sms_receiver(std::bind(&BaseStation::handleSMSCommand, &base_station, std::placeholders::_1, std::placeholders::_2));
     sms_receiver.start();
+
+    WebServer web_server(&base_station);
+    web_server.start();
+
     while (true) {
         base_station.process();
         wait_ms(50);
     }
 
+    web_server.stop();
     sms_receiver.stop();
     device_server.stop();
     Logger::instance().stopLogging();

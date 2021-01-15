@@ -34,6 +34,7 @@ public:
 
     void handleNewDevice(int fd);
     void handleSMSCommand(const std::string &from, const std::string &content);
+    std::string buildWebpage();
 
 private:
     void handleConnections();

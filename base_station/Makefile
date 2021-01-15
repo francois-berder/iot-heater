@@ -7,6 +7,7 @@ BINDIR := $(BUILDDIR)/$(BUILDTYPE)/bin
 
 CFLAGS += -Wall -Wextra -std=c++11
 CFLAGS += -I src
+LDFLAGS += -lmicrohttpd
 DEPFLAGS = -MMD -MP -MF $(@:$(OBJDIR)/%.o=$(DEPDIR)/%.d)
 
 ifeq ($(BUILDTYPE),release)
@@ -23,7 +24,8 @@ SRCS := src/device_server.cpp \
 		src/main.cpp \
 		src/sms_sender.cpp \
 		src/sms_receiver.cpp \
-		src/timer.cpp
+		src/timer.cpp \
+		src/web_server.cpp
 OBJS := $(SRCS:%.cpp=$(OBJDIR)/%.o)
 DEPS := $(SRCS:%.cpp=$(DEPDIR)/%.d)
 
