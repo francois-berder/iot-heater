@@ -4,6 +4,9 @@
 
 ### Build instructions
 
+The program depends on [libmicrohttpd](https://www.gnu.org/software/libmicrohttpd/).
+On Ubuntu, run `sudo apt install libmicrohttpd-dev` to install it.
+
 Type `make` or `BUILDTYPE=debug make` to build `base_station` program.
 
 ### Raspberry Pi setup
