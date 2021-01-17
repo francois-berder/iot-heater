@@ -1,6 +1,7 @@
 #ifndef BASE_STATION_HPP
 #define BASE_STATION_HPP
 
+#include "heater.hpp"
 #include "timer.hpp"
 #include <cstdint>
 #include <deque>
@@ -16,13 +17,6 @@
 struct DeviceConnection {
     int fd;
     std::chrono::steady_clock::time_point last_seen;
-};
-
-enum HeaterState {
-    HEATER_OFF,
-    HEATER_DEFROST,
-    HEATER_ECO,
-    HEATER_COMFORT,
 };
 
 class BaseStation {
@@ -43,7 +37,7 @@ private:
     void parseCommands();
     void sendVersion(const std::string &to);
     void checkStaleConnections();
-    void sendHeaterState(int fd, const std::string &name);
+    void sendHeaterState(int fd, HeaterState state);
     void checkWifi();
     void checkLostDevices();
 
@@ -57,6 +51,8 @@ private:
     std::mutex m_commands_mutex;
 
     Timer m_stale_timer;
+    
+    /* State provided by the user */
     HeaterState m_heater_default_state;
     std::map<std::string, HeaterState> m_heater_state;
 
@@ -69,9 +65,9 @@ private:
 
     uint64_t m_message_counter;
     std::map<uint64_t,uint64_t> m_heater_counter; /* MAC addr -> counter */
-    std::map<uint64_t, time_t> m_heater_last_seen; /* MAC addr -> timestamp */
+    std::map<uint64_t, Heater> m_heaters;   /* MAC -> Heater */
+    std::mutex m_heaters_mutex;
     Timer m_lost_devices_timer;
-    std::map<uint64_t, std::string> m_heater_name; /* MAC addr -> name */
 };
 
 #endif

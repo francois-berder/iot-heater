@@ -121,9 +121,9 @@ m_check_wifi_timer(),
 m_wifi_not_good_counter(0),
 m_message_counter(0),
 m_heater_counter(),
-m_heater_last_seen(),
-m_lost_devices_timer(),
-m_heater_name()
+m_heaters(),
+m_heaters_mutex(),
+m_lost_devices_timer()
 {
     if (!loadState())
         saveState();
@@ -215,14 +215,16 @@ std::string BaseStation::buildWebpage()
     ss << "<th>Last request timestamp</th>";
     ss << "</tr>";
 
-    for (auto it : m_heater_last_seen) {
+    {
+        std::lock_guard<std::mutex> guard(m_heaters_mutex);
+
+    for (auto it : m_heaters) {
         uint64_t mac = it.first;
-        time_t ts = it.second;
+        Heater h = it.second;
 
         ss << "<tr>";
-        auto name = m_heater_name.find(mac);
-        if (name != m_heater_name.end())
-            ss << "<td>" << name->second << "</td>";
+        if (!h.getName().empty())
+            ss << "<td>" << h.getName() << "</td>";
         else
             ss << "<td>?</td>";
 
@@ -238,14 +240,7 @@ std::string BaseStation::buildWebpage()
             ss << "<td>" << buf << "</td>";
         }
 
-        HeaterState s;
-        auto state = m_heater_state.find(name->second);
-        if (state != m_heater_state.end())
-            s = state->second;
-        else
-            s = m_heater_default_state;
-
-        switch (s) {
+        switch (h.getState()) {
         case HEATER_OFF: ss << "<td>OFF</td>"; break;
         case HEATER_DEFROST: ss << "<td>DEFROST</td>"; break;
         case HEATER_ECO: ss << "<td>ECO</td>"; break;
@@ -254,12 +249,14 @@ std::string BaseStation::buildWebpage()
         }
 
         {
+            time_t ts = h.getLastRequestTimestamp();
             char buf[128];
             strftime(buf, sizeof(buf) - 1, "%d-%m-%Y %H:%M:%S", localtime(&ts));
             ss << "<td>" << buf << "</td>";
         }
 
         ss << "</tr>";
+    }
     }
 
     ss << "</table>";
@@ -432,27 +429,47 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
         }
         m_heater_counter[mac_addr] = header.counter;
 
-        if (!name.empty())
-            m_heater_name[mac_addr] = name;
-
-        /* Record last time we got a correct request from the device */
-        m_heater_last_seen[mac_addr] = time(NULL);
-
-        sendHeaterState(conn.fd, name);
+        HeaterState state = m_heater_default_state;
+        if (!name.empty()) {
+            auto it = m_heater_state.find(name);
+            if (it != m_heater_state.end())
+                state = it->second;
+        }
+        {
+            std::lock_guard<std::mutex> guard(m_heaters_mutex);
+            m_heaters[mac_addr] = Heater(name);
+            m_heaters[mac_addr].update(state);
+        }
+        sendHeaterState(conn.fd, state);
     } else if (header.type == MessageType::HEATER_STATE_REPLY) {
         std::stringstream ss;
         ss << "Ignoring HEATER_STATE_REPLY message from device ";
-        auto name = m_heater_name.find(mac_addr);
-        if (name != m_heater_name.end() && !name->second.empty())
-            ss << name->second << " ";
+
+        {
+            std::lock_guard<std::mutex> guard(m_heaters_mutex);
+
+            auto it = m_heaters.find(mac_addr);
+            if (it != m_heaters.end()) {
+                const std::string &name = it->second.getName();
+                if (!name.empty())
+                    ss << name << " ";
+            }
+        }
         macToStr(ss, header.mac_addr);
         Logger::err(ss.str());
     } else {
         std::stringstream ss;
         ss << "Received unknown message type " << header.type << " from device ";
-        auto name = m_heater_name.find(mac_addr);
-        if (name != m_heater_name.end() && !name->second.empty())
-            ss << name->second << " ";
+        {
+            std::lock_guard<std::mutex> guard(m_heaters_mutex);
+
+            auto it = m_heaters.find(mac_addr);
+            if (it != m_heaters.end()) {
+                const std::string &name = it->second.getName();
+                if (!name.empty())
+                    ss << name << " ";
+            }
+        }
         macToStr(ss, header.mac_addr);
         Logger::warn(ss.str());
     }
@@ -817,7 +834,7 @@ void BaseStation::sendVersion(const std::string &to)
     SMSSender::instance().sendSMS(to, content.str());
 }
 
-void BaseStation::sendHeaterState(int fd, const std::string &name)
+void BaseStation::sendHeaterState(int fd, HeaterState state)
 {
     message_header_t header;
     header.version = 1;
@@ -845,12 +862,7 @@ void BaseStation::sendHeaterState(int fd, const std::string &name)
     uint8_t data[MESSAGE_SIZE];
     memset(data, 0xFF, sizeof(data));
     memcpy(data, &header, sizeof(header));
-
-    auto it = m_heater_state.find(name);
-    if (it != m_heater_state.end())
-        data[sizeof(header)] = it->second;
-    else
-        data[sizeof(header)] = m_heater_default_state;
+    data[sizeof(header)] = state;
 
     int sent = 0;
     while (sent < MESSAGE_SIZE) {
@@ -921,33 +933,38 @@ void BaseStation::checkLostDevices()
     read(fds[0].fd, &_, sizeof(_));
 
     time_t now = time(NULL);
-    std::list<uint64_t> lost_devices;
-    auto it = m_heater_last_seen.begin();
-    while (it != m_heater_last_seen.end()) {
-        if (now - it->second < DEVICE_LOST_THRESHOLD) {
-            ++it;
-            continue;
-        }
+    std::map<uint64_t, std::string> lost_devices;
+    {
+        std::lock_guard<std::mutex> guard(m_heaters_mutex);
+        auto it = m_heaters.begin();
+        while (it != m_heaters.end()) {
+            if (now - it->second.getLastRequestTimestamp() < DEVICE_LOST_THRESHOLD) {
+                ++it;
+                continue;
+            }
 
-        lost_devices.push_back(it->first);
-        it = m_heater_last_seen.erase(it);
+            lost_devices[it->first] = it->second.getName();
+            it = m_heaters.erase(it);
+        }
     }
 
-    for (uint64_t it : lost_devices) {
-            uint8_t mac_addr[6];
-            mac_addr[0] = it >> 40;
-            mac_addr[1] = it >> 32;
-            mac_addr[2] = it >> 24;
-            mac_addr[3] = it >> 16;
-            mac_addr[4] = it >> 8;
-            mac_addr[5] = it;
+    for (auto it : lost_devices) {
+        uint64_t mac = it.first;
+        const std::string &name = it.second;
+
+        uint8_t mac_addr[6];
+        mac_addr[0] = mac >> 40;
+        mac_addr[1] = mac >> 32;
+        mac_addr[2] = mac >> 24;
+        mac_addr[3] = mac >> 16;
+        mac_addr[4] = mac >> 8;
+        mac_addr[5] = mac;
 
         std::stringstream ss;
         ss << "Did not receive valid message from device ";
-        auto name = m_heater_name.find(it);
-        if (name == m_heater_name.end() && !name->second.empty())
-            ss << name->second;
-        ss << " MAC=";
+        if (!name.empty())
+            ss << name << ' ';
+        ss << "MAC=";
         macToStr(ss, mac_addr);
         ss << " for more than " << DEVICE_LOST_THRESHOLD << " seconds",
         Logger::warn(ss.str());
@@ -960,27 +977,30 @@ void BaseStation::checkLostDevices()
         else
             ss << "WARNING! Lost connection with one device: ";
 
-        for (uint64_t it : lost_devices) {
-            auto name = m_heater_name.find(it);
-            if (name != m_heater_name.end() && !name->second.empty()) {
-                ss << name->second;
+        auto it = lost_devices.begin();
+        while (it != lost_devices.end()) {
+            const std::string &name = it->second;
+            if (!name.empty()) {
+                ss << name;
             } else {
+                uint64_t mac = it->first;
                 uint8_t mac_addr[6];
-                mac_addr[0] = it >> 40;
-                mac_addr[1] = it >> 32;
-                mac_addr[2] = it >> 24;
-                mac_addr[3] = it >> 16;
-                mac_addr[4] = it >> 8;
-                mac_addr[5] = it;
+                mac_addr[0] = mac >> 40;
+                mac_addr[1] = mac >> 32;
+                mac_addr[2] = mac >> 24;
+                mac_addr[3] = mac >> 16;
+                mac_addr[4] = mac >> 8;
+                mac_addr[5] = mac;
                 macToStr(ss, mac_addr);
             }
  
-            ss << ", ";
+            ++it;
+            if (it != lost_devices.end())
+                ss << ", ";
         }
 
         SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
     }
-
 }
 
 bool BaseStation::loadState()

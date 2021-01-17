@@ -20,6 +20,7 @@ endif
 
 SRCS := src/device_server.cpp \
 		src/base_station.cpp \
+		src/heater.cpp \
 		src/logger.cpp \
 		src/main.cpp \
 		src/sms_sender.cpp \
