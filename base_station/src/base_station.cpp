@@ -1,6 +1,7 @@
 #include "base_station.hpp"
 #include "logger.hpp"
 #include "sms_sender.hpp"
+#include "version.hpp"
 #include <algorithm>
 #include <array>
 #include <cstdlib>
@@ -17,14 +18,6 @@
 #include <sys/reboot.h>
 #include <unistd.h>
 #include <vector>
-
-#ifndef GIT_HASH
-#define GIT_HASH        "development"
-#endif
-
-#ifndef BUILD_TIME
-#define BUILD_TIME      "unknown-time"
-#endif
 
 #ifndef BASE_STATION_PIN
 #define BASE_STATION_PIN    "1234"
@@ -196,6 +189,7 @@ std::string BaseStation::buildWebpage()
         </head><body>";
 
     ss << "<h1>Base station</h1>";
+    ss << "Software version: " << get_version_str();
     ss << "<h2>Heaters</h2>";
     ss << "Default heater state: ";
     switch (m_heater_default_state) {
@@ -827,11 +821,7 @@ void BaseStation::parseCommands()
 
 void BaseStation::sendVersion(const std::string &to)
 {
-    std::stringstream content;
-
-    content << "base_station-" << GIT_HASH << '.' << BUILD_TIME;
-
-    SMSSender::instance().sendSMS(to, content.str());
+    SMSSender::instance().sendSMS(to, get_version_str());
 }
 
 void BaseStation::sendHeaterState(int fd, HeaterState state)

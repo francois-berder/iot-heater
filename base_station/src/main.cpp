@@ -1,9 +1,11 @@
 #include <functional>
+#include <iostream>
 #include <sstream>
 #include "base_station.hpp"
 #include "logger.hpp"
 #include "device_server.hpp"
 #include "sms_receiver.hpp"
+#include "version.hpp"
 #include "web_server.hpp"
 
 #define DEFAULT_DEVICE_SERVER_PORT  (32322)
@@ -11,8 +13,9 @@
 static void print_help(char *program_name)
 {
     std::cout << "Usage: " << program_name << " [options]\n"
-              << "Options: \n"
+              << "Options:\n"
               << "    --device-server-port <port>       Set device server port\n"
+              << "    --version, -v                     Print version\n"
               << "    --help, -h                        Print help\n"
               << std::flush;
 }
@@ -43,6 +46,9 @@ int main(int argc, char **argv)
         } else if (opt == "--help" || opt == "-h") {
             print_help(program_name);
             return 0;
+        } else if (opt == "--version" || opt == "-v") {
+            std::cout << get_version_str() << std::endl;
+            return 0;
         } else {
             std::cerr << "Invalid option: \"" << opt << '\"' << std::endl;
             print_help(program_name);
@@ -57,7 +63,7 @@ int main(int argc, char **argv)
     Logger::instance().startLogging(".");
     {
         std::stringstream ss;
-        ss << program_name << " started";
+        ss << program_name << " (version: " << get_version_str() <<  ") started";
         Logger::info(ss.str());
     }
 
