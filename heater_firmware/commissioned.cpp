@@ -264,6 +264,7 @@ void setup_commissioned()
         WiFi.macAddress(mac);
         sprintf(webpage_buffer, commissioned_index_html,
                     name,
+                    name,
                     ESP.getChipId(),
                     FW_VERSION,
                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],

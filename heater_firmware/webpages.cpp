@@ -6,6 +6,7 @@ const char uncommissioned_index_html[] PROGMEM = R"rawliteral(
 <html>
 <head>
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Heater registration</title>
 </head>
 <body>
     <h1>Heater controller</h1>
@@ -40,6 +41,7 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
 <html>
 <head>
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Heater - %s</title>
 </head>
 <body>
   <h1>Heater controller - %s</h1>
