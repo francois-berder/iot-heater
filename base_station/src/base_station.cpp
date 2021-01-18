@@ -29,10 +29,10 @@
 
 #define STATE_FILE_PATH     "/var/lib/base_station.state"
 
-#define CHECK_WIFI_PERIOD       (60 * 1000)
-#define CHECK_LOST_DEVICES_PERIOD   (60 * 60 * 1000)
-#define NETWORK_INTERFACE_NAME  "wlan0"
-#define DEVICE_LOST_THRESHOLD   (60 * 60)
+#define CHECK_WIFI_PERIOD           (60 * 1000)         /* in milliseconds */
+#define CHECK_LOST_DEVICES_PERIOD   (60 * 60 * 1000)    /* in milliseconds */
+#define NETWORK_INTERFACE_NAME      "wlan0"
+#define DEVICE_LOST_THRESHOLD       (24 * 60 * 60)  /* in seconds */
 
 struct __attribute__((packed)) message_header_t {
     uint8_t version;
@@ -998,7 +998,14 @@ void BaseStation::checkLostDevices()
             ss << name << ' ';
         ss << "MAC=";
         macToStr(ss, mac_addr);
-        ss << " for more than " << DEVICE_LOST_THRESHOLD << " seconds",
+        ss << " for more than ";
+
+        unsigned int secs = DEVICE_LOST_THRESHOLD;
+        unsigned int hours = secs / (60 * 60);
+        secs -= hours * 60 * 60;
+        unsigned int mins = secs / 60;
+        secs -= mins * 60;
+        ss << hours << 'h' << mins << 'm' << secs << 's',
         Logger::warn(ss.str());
     }
 
