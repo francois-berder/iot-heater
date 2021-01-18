@@ -834,6 +834,8 @@ void BaseStation::parseCommands()
                     }
                 }
             }
+        } else if (content == "DEBUG UPTIME") {
+            SMSSender::instance().sendSMS(from, get_uptime_str());
         } else {
             std::stringstream ss;
             ss << "Received invalid message from: " << from;
