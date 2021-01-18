@@ -16,6 +16,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
+#include <sys/sysinfo.h>
 #include <unistd.h>
 #include <vector>
 
@@ -90,6 +91,26 @@ std::stringstream& macToStr(std::stringstream &ss, uint8_t mac[6])
             mac[5]);
     ss << buf;
     return ss;
+}
+
+std::string get_uptime_str()
+{
+    struct sysinfo s_info;
+    int ret = sysinfo(&s_info);
+    if (ret)
+        return "unknown";
+
+    unsigned int secs = s_info.uptime;
+    unsigned int days = secs / (60 * 60 * 24);
+    secs -= days * (60 * 60 * 24);
+    unsigned int hours = secs / (60 * 60);
+    secs -= hours * (60 * 60);
+    unsigned int minutes = secs / 60;
+    secs -= minutes * 60;
+
+    std::stringstream ss;
+    ss << days << " days " << hours << "h " << minutes << "m " << secs << "s";
+    return ss.str();
 }
 
 }
@@ -190,6 +211,8 @@ std::string BaseStation::buildWebpage()
 
     ss << "<h1>Base station</h1>";
     ss << "Software version: " << get_version_str();
+    ss << "<br>";
+    ss << "Uptime: " << get_uptime_str();
     ss << "<h2>Heaters</h2>";
     ss << "Default heater state: ";
     switch (m_heater_default_state) {
