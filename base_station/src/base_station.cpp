@@ -220,6 +220,7 @@ std::string BaseStation::buildWebpage()
         border-collapse: collapse;\
         }\
         </style>\
+        <title>Base station</title>\
         </head><body>";
 
     ss << "<h1>Base station</h1>";
