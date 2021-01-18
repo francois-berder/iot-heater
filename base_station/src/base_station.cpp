@@ -17,6 +17,7 @@
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
 #include <sys/sysinfo.h>
+#include <sys/utsname.h>
 #include <unistd.h>
 #include <vector>
 
@@ -110,6 +111,18 @@ std::string get_uptime_str()
 
     std::stringstream ss;
     ss << days << " days " << hours << "h " << minutes << "m " << secs << "s";
+    return ss.str();
+}
+
+std::string get_machineinfo_str()
+{
+    struct utsname u;
+    int ret = uname(&u);
+    if (ret)
+        return "unknown";
+
+    std::stringstream ss;
+    ss << u.sysname << '-' << u.nodename << '-' << u.release << '-' << u.version << '-' << u.machine;
     return ss.str();
 }
 
@@ -210,9 +223,12 @@ std::string BaseStation::buildWebpage()
         </head><body>";
 
     ss << "<h1>Base station</h1>";
+    ss << "<h2>Device information</h2>";
     ss << "Software version: " << get_version_str();
     ss << "<br>";
     ss << "Uptime: " << get_uptime_str();
+    ss << "<br>";
+    ss << "Machine info: " << get_machineinfo_str();
     ss << "<h2>Heaters</h2>";
     ss << "Default heater state: ";
     switch (m_heater_default_state) {
