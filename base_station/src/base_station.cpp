@@ -126,6 +126,15 @@ std::string get_machineinfo_str()
     return ss.str();
 }
 
+bool check_3g_module_presence()
+{
+    /*
+     * When the 3G module is connected,
+     * /dev/USB0-3 are present in /dev
+     */
+    return access("/dev/ttyUSB2", F_OK) == 0;
+}
+
 }
 
 enum MessageType {
@@ -230,6 +239,8 @@ std::string BaseStation::buildWebpage()
     ss << "Uptime: " << get_uptime_str();
     ss << "<br>";
     ss << "Machine info: " << get_machineinfo_str();
+    ss << "<br>";
+    ss << "3G module connected: " << (check_3g_module_presence() ? "yes" : "no");
     ss << "<h2>Heaters</h2>";
     ss << "Default heater state: ";
     switch (m_heater_default_state) {
