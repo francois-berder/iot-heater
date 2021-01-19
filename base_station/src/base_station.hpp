@@ -40,6 +40,7 @@ private:
     void sendHeaterState(int fd, HeaterState state);
     void checkWifi();
     void checkLostDevices();
+    void check3G();
 
     bool loadState();
     void saveState();
@@ -68,6 +69,9 @@ private:
     std::map<uint64_t, Heater> m_heaters;   /* MAC -> Heater */
     std::mutex m_heaters_mutex;
     Timer m_lost_devices_timer;
+
+    Timer m_check_3g_timer;
+    unsigned int m_3g_error_counter;
 };
 
 #endif

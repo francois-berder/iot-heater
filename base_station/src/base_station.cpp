@@ -33,6 +33,9 @@
 #define CHECK_LOST_DEVICES_PERIOD   (60 * 60 * 1000)    /* in milliseconds */
 #define NETWORK_INTERFACE_NAME      "wlan0"
 #define DEVICE_LOST_THRESHOLD       (24 * 60 * 60)  /* in seconds */
+#define CHECK_3G_PERIOD             (5 * 60 * 1000)     /* in milliseconds */
+#define MODULE_3G_ERROR_THRESHOLD   (6)
+#define FALLBACK_HEATER_STATE       (HEATER_DEFROST)
 
 struct __attribute__((packed)) message_header_t {
     uint8_t version;
@@ -159,7 +162,9 @@ m_message_counter(0),
 m_heater_counter(),
 m_heaters(),
 m_heaters_mutex(),
-m_lost_devices_timer()
+m_lost_devices_timer(),
+m_check_3g_timer(),
+m_3g_error_counter(0)
 {
     if (!loadState())
         saveState();
@@ -169,6 +174,9 @@ m_lost_devices_timer()
 
     /* Start lost devices timer */
     m_lost_devices_timer.start(CHECK_LOST_DEVICES_PERIOD, true);
+
+    /* Start check 3G timer */
+    m_check_3g_timer.start(CHECK_3G_PERIOD, true);
 
     /* Initialize message counter */
     srand(time(NULL));
@@ -190,6 +198,7 @@ void BaseStation::process()
     checkStaleConnections();
     checkWifi();
     checkLostDevices();
+    check3G();
 }
 
 /*
@@ -1050,6 +1059,76 @@ void BaseStation::checkLostDevices()
         }
 
         SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
+    }
+}
+
+void BaseStation::check3G()
+{
+    struct pollfd fds[1];
+
+    fds[0].fd = m_check_3g_timer.getFD();
+    fds[0].events = POLLIN;
+
+    int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), 0);
+    if (ret <= 0)
+        return;
+
+    /* Dummy read with timer fd to clear event */
+    uint64_t _;
+    read(fds[0].fd, &_, sizeof(_));
+
+    if (check_3g_module_presence()) {
+        if (m_3g_error_counter >= MODULE_3G_ERROR_THRESHOLD) {
+            std::stringstream ss;
+            ss << "INFO! All heaters were set to ";
+            switch (FALLBACK_HEATER_STATE) {
+            case HEATER_OFF: ss << "OFF"; break;
+            case HEATER_DEFROST: ss << "DEFROST"; break;
+            case HEATER_ECO: ss << "ECO"; break;
+            case HEATER_COMFORT: ss << "COMFORT/ON"; break;
+            default: ss << "UNKNOWN"; break;
+            }
+
+            ss << " mode due to earlier 3G module errors";
+            Logger::info(ss.str());
+            SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
+        }
+
+        m_3g_error_counter = 0;
+    } else {
+        ++m_3g_error_counter;
+        if (m_3g_error_counter == MODULE_3G_ERROR_THRESHOLD) {
+            unsigned int secs = (CHECK_3G_PERIOD * MODULE_3G_ERROR_THRESHOLD) / 1000;
+            unsigned int hours = secs / 3600;
+            secs -= hours * 3600;
+            unsigned int mins = secs / 60;
+            secs -= mins * 60;
+
+            {
+                std::stringstream ss;
+                ss << "3G module not detected for the last " << hours<< 'h' << mins << 'm' << secs << 's';
+                Logger::err(ss.str());
+            }
+
+
+            m_heater_default_state = FALLBACK_HEATER_STATE;
+            for (auto &it : m_heater_state)
+                it.second = FALLBACK_HEATER_STATE;
+
+            {
+                std::stringstream ss;
+                ss << "Setting all heaters to ";
+                switch (FALLBACK_HEATER_STATE) {
+                case HEATER_OFF: ss << "OFF"; break;
+                case HEATER_DEFROST: ss << "DEFROST"; break;
+                case HEATER_ECO: ss << "ECO"; break;
+                case HEATER_COMFORT: ss << "COMFORT/ON"; break;
+                default: ss << "UNKNOWN"; break;
+                }
+                ss << " mode due to 3G module not being detected.";
+                Logger::info(ss.str());
+            }
+        }
     }
 }
 
