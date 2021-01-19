@@ -38,12 +38,18 @@ sent = /var/spool/sms/sent
 stats = /var/log/smstools/smsd_stats
 receive_before_send = no
 autosplit = 3
+whitelist = /etc/smsd.whitelist
 
 [GSM1]
 device = /dev/ttyUSB2
 incoming = yes
 baudrate = 115200
 memory_start = 0
+EOM
+
+cat > "${TMPDIR}/smsd.whitelist" <<- EOM
+33 # Allow any destination from France
+44 # Allow any destination from UK
 EOM
 
 cat > "${TMPDIR}/basestation.service" <<- EOM
@@ -106,6 +112,7 @@ printf "/usr/bin/tvservice -o\nexit 0\n" >> /etc/rc.local
 # Configure smstools daemon
 echo "Configuring smstools daemon"
 install -m 644 smsd.conf /etc/smsd.conf
+install -m 644 smsd.whitelist /etc/smsd.whitelist
 service smstools restart
 
 # Install base station server
