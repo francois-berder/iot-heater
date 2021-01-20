@@ -30,6 +30,7 @@
 #define STATE_FILE_PATH     "/var/lib/base_station.state"
 
 #define CHECK_WIFI_PERIOD           (60 * 1000)         /* in milliseconds */
+#define WIFI_ERROR_THRESHOLD        (15)
 #define CHECK_LOST_DEVICES_PERIOD   (60 * 60 * 1000)    /* in milliseconds */
 #define NETWORK_INTERFACE_NAME      "wlan0"
 #define DEVICE_LOST_THRESHOLD       (24 * 60 * 60)  /* in seconds */
@@ -948,11 +949,23 @@ void BaseStation::checkWifi()
 
             if (!up_and_running) {
                 ++m_wifi_error_counter;
-                if (m_wifi_error_counter == 15) {
-                    Logger::err("Lost WiFi connection for past 15 minutes");
+                if (m_wifi_error_counter == WIFI_ERROR_THRESHOLD) {
+                    unsigned int secs = (WIFI_ERROR_THRESHOLD * CHECK_WIFI_PERIOD) / 1000;
+                    unsigned int hours = secs / 3600;
+                    secs -= hours * 3600;
+                    unsigned int mins = secs / 60;
+                    secs -= mins * 60;
+                    std::stringstream ss;
+                    ss << "Lost WiFi connection for past " << hours << 'h' << mins << 'm' << secs << 's';
+                    Logger::err(ss.str());
 
-                    if (!m_emergency_phone.empty())
-                        SMSSender::instance().sendSMS(m_emergency_phone, "Error! Base station lost WiFi connection for past 15 minutes. Heaters cannot be controlled.");
+                    if (!m_emergency_phone.empty()) {
+                        std::stringstream ss;
+                        ss << "Error! Base station lost WiFi connection for past ";
+                        ss << hours << 'h' << mins << 'm' << secs << "s. ";
+                        ss << "Heaters cannot be controlled (they will switch to DEFROST mode automatically).";
+                        SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
+                    }
                 }
             } else {
                 if (m_wifi_error_counter) {
