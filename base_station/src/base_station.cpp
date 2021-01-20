@@ -157,7 +157,7 @@ m_locked(false),
 m_phone_whitelist(),
 m_emergency_phone(),
 m_check_wifi_timer(),
-m_wifi_not_good_counter(0),
+m_wifi_error_counter(0),
 m_message_counter(0),
 m_heater_counter(),
 m_heaters(),
@@ -947,20 +947,20 @@ void BaseStation::checkWifi()
             bool up_and_running = (ifr.ifr_flags & ( IFF_UP | IFF_RUNNING )) == ( IFF_UP | IFF_RUNNING );
 
             if (!up_and_running) {
-                ++m_wifi_not_good_counter;
-                if (m_wifi_not_good_counter == 15) {
+                ++m_wifi_error_counter;
+                if (m_wifi_error_counter == 15) {
                     Logger::err("Lost WiFi connection for past 15 minutes");
 
                     if (!m_emergency_phone.empty())
                         SMSSender::instance().sendSMS(m_emergency_phone, "Error! Base station lost WiFi connection for past 15 minutes. Heaters cannot be controlled.");
                 }
             } else {
-                if (m_wifi_not_good_counter) {
+                if (m_wifi_error_counter) {
                     Logger::info("WiFi connection restored");
                     if (!m_emergency_phone.empty())
                         SMSSender::instance().sendSMS(m_emergency_phone, "Base station restored WiFi connection. System is now running ok.");
                 }
-                m_wifi_not_good_counter = 0;
+                m_wifi_error_counter = 0;
             }
         } else {
             Logger::err("Cannot check connection status of network interface " NETWORK_INTERFACE_NAME);
