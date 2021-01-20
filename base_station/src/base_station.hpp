@@ -41,6 +41,7 @@ private:
     void checkWifi();
     void checkLostDevices();
     void check3G();
+    void sendBootMsg();
 
     bool loadState();
     void saveState();
@@ -72,6 +73,8 @@ private:
 
     Timer m_check_3g_timer;
     unsigned int m_3g_error_counter;
+
+    Timer m_send_boot_msg;
 };
 
 #endif

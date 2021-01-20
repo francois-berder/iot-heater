@@ -37,6 +37,7 @@
 #define CHECK_3G_PERIOD             (5 * 60 * 1000)     /* in milliseconds */
 #define MODULE_3G_ERROR_THRESHOLD   (6)
 #define FALLBACK_HEATER_STATE       (HEATER_DEFROST)
+#define SEND_BOOT_MSG_PERIOD        (30 * 1000)
 
 struct __attribute__((packed)) message_header_t {
     uint8_t version;
@@ -165,7 +166,8 @@ m_heaters(),
 m_heaters_mutex(),
 m_lost_devices_timer(),
 m_check_3g_timer(),
-m_3g_error_counter(0)
+m_3g_error_counter(0),
+m_send_boot_msg()
 {
     if (!loadState())
         saveState();
@@ -178,6 +180,9 @@ m_3g_error_counter(0)
 
     /* Start check 3G timer */
     m_check_3g_timer.start(CHECK_3G_PERIOD, true);
+
+    /* Start send boot msg timer */
+    m_send_boot_msg.start(SEND_BOOT_MSG_PERIOD, false);
 
     /* Initialize message counter */
     srand(time(NULL));
@@ -200,6 +205,7 @@ void BaseStation::process()
     checkWifi();
     checkLostDevices();
     check3G();
+    sendBootMsg();
 }
 
 /*
@@ -1142,6 +1148,48 @@ void BaseStation::check3G()
                 Logger::info(ss.str());
             }
         }
+    }
+}
+
+void BaseStation::sendBootMsg()
+{
+    struct pollfd fds[1];
+
+    fds[0].fd = m_send_boot_msg.getFD();
+    fds[0].events = POLLIN;
+
+    int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), 0);
+    if (ret <= 0)
+        return;
+
+    /* Dummy read with timer fd to clear event */
+    uint64_t _;
+    read(fds[0].fd, &_, sizeof(_));
+
+    if (!m_emergency_phone.empty()) {
+        std::stringstream msg;
+        msg << "INFO! Base station software started\n";
+        msg << "Default heater state: ";
+        switch (m_heater_default_state) {
+        case HEATER_OFF: msg << "OFF"; break;
+        case HEATER_DEFROST: msg << "DEFROST"; break;
+        case HEATER_ECO: msg << "ECO"; break;
+        case HEATER_COMFORT: msg << "COMFORT/ON"; break;
+        default: msg << "UNKNOWN"; break;
+        }
+        msg << '\n';
+        for (auto it : m_heater_state) {
+            msg << "Heater " << it.first << " state: ";
+            switch (it.second) {
+            case HEATER_OFF: msg << "OFF"; break;
+            case HEATER_DEFROST: msg << "DEFROST"; break;
+            case HEATER_ECO: msg << "ECO"; break;
+            case HEATER_COMFORT: msg << "COMFORT/ON"; break;
+            default: msg << "UNKNOWN"; break;
+            }
+            msg << '\n';
+        }
+        SMSSender::instance().sendSMS(m_emergency_phone, msg.str());
     }
 }
 
