@@ -28,6 +28,9 @@ void Timer::start(unsigned int period_ms, bool periodic)
     if (periodic) {
         val.it_interval.tv_nsec = val.it_value.tv_nsec;
         val.it_interval.tv_sec = val.it_value.tv_sec;
+    } else {
+        val.it_interval.tv_nsec = 0;
+        val.it_interval.tv_sec = 0;
     }
     timerfd_settime(fd, 0, &val, NULL);
 }
