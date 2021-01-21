@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <array>
 #include <cstdlib>
+#include <fcntl.h>
 #include <fstream>
 #include <iterator>
 #include <list>
@@ -18,6 +19,7 @@
 #include <sys/reboot.h>
 #include <sys/sysinfo.h>
 #include <sys/utsname.h>
+#include <termios.h>
 #include <unistd.h>
 #include <vector>
 
@@ -134,10 +136,131 @@ std::string get_machineinfo_str()
 bool check_3g_module_presence()
 {
     /*
-     * When the 3G module is connected,
-     * /dev/USB0-3 are present in /dev
+     * /dev/ttyUSB2 used by smstools daemon
+     * /dev/ttyUSB3 another AT interface
      */
-    return access("/dev/ttyUSB2", F_OK) == 0;
+    return access("/dev/ttyUSB2", F_OK) == 0 && access("/dev/ttyUSB3", F_OK) == 0;
+}
+
+enum modem_status_t {
+    MODEM_COMS_FAILURE,
+    MODEM_SIM_ERROR,
+    MODEM_NETWORK_NOT_REGISTERED,
+    MODEM_NETWORK_DENIED,
+    MODEM_NETWORK_REGISTERED,
+    MODEM_NETWORK_SEARCHING,
+    MODEM_NETWORK_UNKNOWN,
+    MODEM_NETWORK_ROAMING,
+};
+
+enum modem_status_t check_3g_connection()
+{
+    int fd;
+    struct termios old_params, new_params;
+    enum modem_status_t status = MODEM_COMS_FAILURE;
+
+    fd = open("/dev/ttyUSB3", O_RDWR);
+    if (fd < 0)
+        return status;
+
+    /* Configure serial port */
+    if (tcgetattr(fd, &old_params) < 0) {
+        close(fd);
+        return status;
+    }
+
+    if (tcgetattr(fd, &new_params) < 0)
+        goto cleanup_serial;
+
+    cfmakeraw(&new_params);
+    new_params.c_lflag &= ~ICANON;
+    new_params.c_cc[VMIN] = 0;
+    new_params.c_cc[VTIME] = 1;
+    if (cfsetispeed(&new_params, B9600)
+     || cfsetospeed(&new_params, B9600)
+     || tcsetattr(fd, TCSANOW, &new_params))
+         goto cleanup_serial;
+
+    tcflush(fd, TCIOFLUSH);
+
+    /* Check 3G module */
+    if (write(fd, "AT\r\n", 4) != 4)
+        goto cleanup_serial;
+
+    {
+        std::string reply;
+        while (1) {
+            char buf[32];
+            int ret = read(fd, buf, sizeof(buf) - 1);
+            if (ret <= 0)
+                break;
+            buf[ret] = '\0';
+            reply += buf;
+        }
+
+        if (reply.find("OK") == std::string::npos)
+            goto cleanup_serial;
+    }
+
+    tcflush(fd, TCIOFLUSH);
+
+    /* Check SIM card */
+    if (write(fd, "AT+CPIN?\r\n", 10) != 10)
+        goto cleanup_serial;
+
+    {
+        std::string reply;
+        while (1) {
+            char buf[32];
+            int ret = read(fd, buf, sizeof(buf) - 1);
+            if (ret <= 0)
+                break;
+            buf[ret] = '\0';
+            reply += buf;
+        }
+
+        if (reply.find("+CPIN: READY") == std::string::npos)
+            goto cleanup_serial;
+    }
+
+    tcflush(fd, TCIOFLUSH);
+
+    /* Check connectivity */
+    if (write(fd, "AT+CREG?\r\n", 10) != 10)
+        goto cleanup_serial;
+
+    {
+        std::string reply;
+        while (1) {
+            char buf[32];
+            int ret = read(fd, buf, sizeof(buf) - 1);
+            if (ret <= 0)
+                break;
+            buf[ret] = '\0';
+            reply += buf;
+        }
+
+        if (reply.find("+CREG: 0,0") != std::string::npos)
+            status = MODEM_NETWORK_NOT_REGISTERED;
+        else if (reply.find("+CREG: 0,1") != std::string::npos)
+            status = MODEM_NETWORK_REGISTERED;
+        else if (reply.find("+CREG: 0,2") != std::string::npos)
+            status = MODEM_NETWORK_SEARCHING;
+        else if (reply.find("+CREG: 0,3") != std::string::npos)
+            status = MODEM_NETWORK_DENIED;
+        else if (reply.find("+CREG: 0,4") != std::string::npos)
+            status = MODEM_NETWORK_UNKNOWN;
+        else if (reply.find("+CREG: 0,5") != std::string::npos)
+            status = MODEM_NETWORK_ROAMING;
+        else
+            status = MODEM_NETWORK_UNKNOWN;
+    }
+
+cleanup_serial:
+    tcsetattr(fd, TCSANOW, &old_params);
+    close(fd);
+
+    return status;
 }
 
 }
@@ -256,7 +379,24 @@ std::string BaseStation::buildWebpage()
     ss << "<br>";
     ss << "Machine info: " << get_machineinfo_str();
     ss << "<br>";
-    ss << "3G module connected: " << (check_3g_module_presence() ? "yes" : "no");
+    bool modem_detected = check_3g_module_presence();
+    ss << "3G module detected: " << (modem_detected ? "yes" : "no");
+    ss << "<br>";
+    if (modem_detected) {
+        ss << "3G module network status: ";
+        enum modem_status_t status = check_3g_connection();
+        switch (status) {
+        case MODEM_COMS_FAILURE: ss << "comms failure"; break;
+        case MODEM_SIM_ERROR: ss << "SIM card error"; break;
+        case MODEM_NETWORK_NOT_REGISTERED: ss << "not registered"; break;
+        case MODEM_NETWORK_DENIED: ss << "denied"; break;
+        case MODEM_NETWORK_REGISTERED: ss << "OK"; break;
+        case MODEM_NETWORK_SEARCHING: ss << "connecting"; break;
+        case MODEM_NETWORK_UNKNOWN: ss << "unknown"; break;
+        case MODEM_NETWORK_ROAMING: ss << "roaming"; break;
+        default: ss << "cannot get network status"; break;
+        }
+    }
     ss << "<h2>Heaters</h2>";
     ss << "Default heater state: ";
     switch (m_heater_default_state) {
@@ -1096,25 +1236,7 @@ void BaseStation::check3G()
     uint64_t _;
     read(fds[0].fd, &_, sizeof(_));
 
-    if (check_3g_module_presence()) {
-        if (m_3g_error_counter >= MODULE_3G_ERROR_THRESHOLD) {
-            std::stringstream ss;
-            ss << "INFO! All heaters were set to ";
-            switch (FALLBACK_HEATER_STATE) {
-            case HEATER_OFF: ss << "OFF"; break;
-            case HEATER_DEFROST: ss << "DEFROST"; break;
-            case HEATER_ECO: ss << "ECO"; break;
-            case HEATER_COMFORT: ss << "COMFORT/ON"; break;
-            default: ss << "UNKNOWN"; break;
-            }
-
-            ss << " mode due to earlier 3G module errors";
-            Logger::info(ss.str());
-            SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
-        }
-
-        m_3g_error_counter = 0;
-    } else {
+    if (!check_3g_module_presence()) {
         ++m_3g_error_counter;
         if (m_3g_error_counter == MODULE_3G_ERROR_THRESHOLD) {
             unsigned int secs = (CHECK_3G_PERIOD * MODULE_3G_ERROR_THRESHOLD) / 1000;
@@ -1147,6 +1269,27 @@ void BaseStation::check3G()
                 ss << " mode due to 3G module not being detected.";
                 Logger::info(ss.str());
             }
+        }
+    } else {
+        enum modem_status_t status = check_3g_connection();
+        if (status == MODEM_NETWORK_REGISTERED || status == MODEM_NETWORK_ROAMING) {
+            if (m_3g_error_counter >= MODULE_3G_ERROR_THRESHOLD) {
+                std::stringstream ss;
+                ss << "INFO! All heaters were set to ";
+                switch (FALLBACK_HEATER_STATE) {
+                case HEATER_OFF: ss << "OFF"; break;
+                case HEATER_DEFROST: ss << "DEFROST"; break;
+                case HEATER_ECO: ss << "ECO"; break;
+                case HEATER_COMFORT: ss << "COMFORT/ON"; break;
+                default: ss << "UNKNOWN"; break;
+                }
+
+                ss << " mode due to earlier 3G module errors";
+                Logger::info(ss.str());
+                SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
+            }
+
+            m_3g_error_counter = 0;
         }
     }
 }
