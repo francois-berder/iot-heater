@@ -1024,6 +1024,7 @@ void BaseStation::parseCommands()
             std::stringstream ss;
             ss << "Received invalid message from: " << from;
             Logger::warn(ss.str());
+            SMSSender::instance().sendSMS(from, "Received invalid command");
         }
     }
 }
