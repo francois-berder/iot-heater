@@ -3,6 +3,7 @@
 #include "sms_sender.hpp"
 #include "version.hpp"
 #include <algorithm>
+#include <arpa/inet.h>
 #include <array>
 #include <cstdlib>
 #include <fcntl.h>
@@ -263,6 +264,30 @@ cleanup_serial:
     return status;
 }
 
+std::string get_ip_address_str()
+{
+    int fd;
+
+    fd = socket(AF_INET, SOCK_DGRAM, 0);
+    if (fd < 0)
+        return "unknown";
+
+    struct ifreq ifr;
+    ifr.ifr_addr.sa_family = AF_INET;
+    strncpy(ifr.ifr_name, NETWORK_INTERFACE_NAME, IFNAMSIZ-1);
+
+    if (ioctl(fd, SIOCGIFADDR, &ifr) < 0) {
+        close(fd);
+        return "unknown";
+    }
+
+    close(fd);
+
+    char buf[32];
+    sprintf(buf, "%s", inet_ntoa(((struct sockaddr_in *)&ifr.ifr_addr)->sin_addr));
+    return std::string(buf);
+}
+
 }
 
 enum MessageType {
@@ -378,6 +403,8 @@ std::string BaseStation::buildWebpage()
     ss << "Uptime: " << get_uptime_str();
     ss << "<br>";
     ss << "Machine info: " << get_machineinfo_str();
+    ss << "<br>";
+    ss << "IP address: " << get_ip_address_str();
     ss << "<br>";
     bool modem_detected = check_3g_module_presence();
     ss << "3G module detected: " << (modem_detected ? "yes" : "no");
