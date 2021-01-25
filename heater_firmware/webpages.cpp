@@ -52,6 +52,8 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
   <br>
   MAC address: %02X:%02X:%02X:%02X:%02X:%02X
   <br>
+  WiFi signal strength (RSSI): %d dBm
+  <br>
   Base station addr: %s
   <br>
   Heater state: %s
