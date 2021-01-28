@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <array>
 #include <cstdlib>
+#include <dirent.h>
 #include <fcntl.h>
 #include <fstream>
 #include <iterator>
@@ -40,6 +41,8 @@
 #define CHECK_3G_PERIOD             (5 * 60 * 1000)     /* in milliseconds */
 #define MODULE_3G_ERROR_THRESHOLD   (6)
 #define FALLBACK_HEATER_STATE       (HEATER_DEFROST)
+#define CHECK_DAEMON_PERIOD         (5 * 60 * 1000)     /* in milliseconds */
+#define DAEMON_ERROR_THRESHOLD      (6)
 #define SEND_BOOT_MSG_PERIOD        (30 * 1000)
 
 struct __attribute__((packed)) message_header_t {
@@ -288,6 +291,49 @@ std::string get_ip_address_str()
     return std::string(buf);
 }
 
+/* From https://stackoverflow.com/questions/6898337/determine-programmatically-if-a-program-is-running */
+bool is_process_running(const std::string &name)
+{
+    DIR* dir;
+    struct dirent* ent;
+    char buf[512];
+
+    long pid;
+    char pname[100] = {0,};
+    char state;
+    FILE *fp=NULL;
+
+    if (!(dir = opendir("/proc"))) {
+        Logger::err("can't open /proc");
+        return false;
+    }
+
+    while((ent = readdir(dir)) != NULL) {
+        long lpid = atol(ent->d_name);
+        if(lpid < 0)
+            continue;
+        snprintf(buf, sizeof(buf), "/proc/%ld/stat", lpid);
+        fp = fopen(buf, "r");
+
+        if (fp) {
+            if ( (fscanf(fp, "%ld (%[^)]) %c", &pid, pname, &state)) != 3 ){
+                fclose(fp);
+                closedir(dir);
+                return false;
+            }
+            if (!strcmp(pname, name.c_str())) {
+                fclose(fp);
+                closedir(dir);
+                return true;
+            }
+            fclose(fp);
+        }
+    }
+
+    closedir(dir);
+    return false;
+}
+
 }
 
 enum MessageType {
@@ -315,6 +361,8 @@ m_heaters_mutex(),
 m_lost_devices_timer(),
 m_check_3g_timer(),
 m_3g_error_counter(0),
+m_check_daemon_timer(),
+m_daemon_error_counter(0),
 m_send_boot_msg()
 {
     if (!loadState())
@@ -328,6 +376,9 @@ m_send_boot_msg()
 
     /* Start check 3G timer */
     m_check_3g_timer.start(CHECK_3G_PERIOD, true);
+
+    /* Start check daemon timer */
+    m_check_daemon_timer.start(CHECK_DAEMON_PERIOD, true);
 
     /* Start send boot msg timer */
     m_send_boot_msg.start(SEND_BOOT_MSG_PERIOD, false);
@@ -353,6 +404,7 @@ void BaseStation::process()
     checkWifi();
     checkLostDevices();
     check3G();
+    checkSMSDaemon();
     sendBootMsg();
 }
 
@@ -424,6 +476,11 @@ std::string BaseStation::buildWebpage()
         default: ss << "cannot get network status"; break;
         }
     }
+    ss << "<br>";
+    if (is_process_running("smsd"))
+        ss << "SMS daemon: running";
+    else
+        ss << "SMS daemon: not running";
     ss << "<h2>Heaters</h2>";
     ss << "Default heater state: ";
     switch (m_heater_default_state) {
@@ -1279,7 +1336,6 @@ void BaseStation::check3G()
                 Logger::err(ss.str());
             }
 
-
             m_heater_default_state = FALLBACK_HEATER_STATE;
             for (auto &it : m_heater_state)
                 it.second = FALLBACK_HEATER_STATE;
@@ -1319,6 +1375,76 @@ void BaseStation::check3G()
 
             m_3g_error_counter = 0;
         }
+    }
+}
+
+void BaseStation::checkSMSDaemon()
+{
+    struct pollfd fds[1];
+
+    fds[0].fd = m_check_daemon_timer.getFD();
+    fds[0].events = POLLIN;
+
+    int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), 0);
+    if (ret <= 0)
+        return;
+
+    /* Dummy read with timer fd to clear event */
+    uint64_t _;
+    read(fds[0].fd, &_, sizeof(_));
+
+    /* Check that smsd is running */
+    if (!is_process_running("smsd")) {
+        m_daemon_error_counter++;
+        if (m_daemon_error_counter == DAEMON_ERROR_THRESHOLD) {
+            unsigned int secs = (CHECK_DAEMON_PERIOD * DAEMON_ERROR_THRESHOLD) / 1000;
+            unsigned int hours = secs / 3600;
+            secs -= hours * 3600;
+            unsigned int mins = secs / 60;
+            secs -= mins * 60;
+
+            {
+                std::stringstream ss;
+                ss << "smstools not running for the last " << hours<< 'h' << mins << 'm' << secs << 's';;
+                Logger::err(ss.str());
+            }
+
+            m_heater_default_state = FALLBACK_HEATER_STATE;
+            for (auto &it : m_heater_state)
+                it.second = FALLBACK_HEATER_STATE;
+
+            {
+                std::stringstream ss;
+                ss << "Setting all heaters to ";
+                switch (FALLBACK_HEATER_STATE) {
+                case HEATER_OFF: ss << "OFF"; break;
+                case HEATER_DEFROST: ss << "DEFROST"; break;
+                case HEATER_ECO: ss << "ECO"; break;
+                case HEATER_COMFORT: ss << "COMFORT/ON"; break;
+                default: ss << "UNKNOWN"; break;
+                }
+                ss << " mode due to SMS daemon not running.";
+                Logger::info(ss.str());
+            }
+        }
+    } else {
+        if (m_daemon_error_counter) {
+                std::stringstream ss;
+                ss << "INFO! All heaters were set to ";
+                switch (FALLBACK_HEATER_STATE) {
+                case HEATER_OFF: ss << "OFF"; break;
+                case HEATER_DEFROST: ss << "DEFROST"; break;
+                case HEATER_ECO: ss << "ECO"; break;
+                case HEATER_COMFORT: ss << "COMFORT/ON"; break;
+                default: ss << "UNKNOWN"; break;
+                }
+
+                ss << " mode due to earlier 3G module errors";
+                Logger::info(ss.str());
+                if (!m_emergency_phone.empty())
+                    SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
+        }
+        m_daemon_error_counter = 0;
     }
 }
 
