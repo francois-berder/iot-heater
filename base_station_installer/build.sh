@@ -9,6 +9,11 @@ if ! [ -x "$(command -v makeself)" ]; then
     exit 1
 fi
 
+if ! [ -x "$(command -v git)" ]; then
+    echo "Please install git"
+    exit 1
+fi
+
 TMPDIR=$(mktemp -d)
 
 git clone --depth 1 https://github.com/francois-berder/iot-heater.git "${TMPDIR}/heater"
