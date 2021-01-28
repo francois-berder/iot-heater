@@ -14,9 +14,27 @@ if ! [ -x "$(command -v git)" ]; then
     exit 1
 fi
 
+
+HEATER_REPO="https://github.com/francois-berder/iot-heater.git"
+BRANCH_NAME="master"
+while getopts "hr:b:" arg; do
+  case $arg in
+    h)
+      echo "Usage: $0 [-h] [-r git-repository]"
+      exit 0
+      ;;
+    r)
+      HEATER_REPO=$OPTARG
+      ;;
+    b)
+      BRANCH_NAME=$OPTARG
+      ;;
+  esac
+done
+
 TMPDIR=$(mktemp -d)
 
-git clone --depth 1 https://github.com/francois-berder/iot-heater.git "${TMPDIR}/heater"
+git clone --depth 1 --branch "${BRANCH_NAME}" "${HEATER_REPO}" "${TMPDIR}/heater"
 tar czf "${TMPDIR}/heater.tar.gz" -C "${TMPDIR}" heater
 rm -rf "${TMPDIR}/heater"
 
