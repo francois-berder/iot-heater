@@ -459,28 +459,28 @@ std::string BaseStation::buildWebpage()
     ss << "IP address: " << get_ip_address_str();
     ss << "<br>";
     bool modem_detected = check_3g_module_presence();
-    ss << "3G module detected: " << (modem_detected ? "yes" : "no");
+    ss << "3G module detected: " << (modem_detected ? "yes" : "<span style=\"color:red\">no</span>");
     ss << "<br>";
     if (modem_detected) {
         ss << "3G module network status: ";
         enum modem_status_t status = check_3g_connection();
         switch (status) {
-        case MODEM_COMS_FAILURE: ss << "comms failure"; break;
-        case MODEM_SIM_ERROR: ss << "SIM card error"; break;
-        case MODEM_NETWORK_NOT_REGISTERED: ss << "not registered"; break;
-        case MODEM_NETWORK_DENIED: ss << "denied"; break;
+        case MODEM_COMS_FAILURE: ss << "<span style=\"color:red\">comms failure</span>"; break;
+        case MODEM_SIM_ERROR: ss << "<span style=\"color:red\">SIM card error</span>"; break;
+        case MODEM_NETWORK_NOT_REGISTERED: ss << "<p style=\"color:red\">not registered</span>"; break;
+        case MODEM_NETWORK_DENIED: ss << "<span style=\"color:red\">denied</span>"; break;
         case MODEM_NETWORK_REGISTERED: ss << "OK"; break;
         case MODEM_NETWORK_SEARCHING: ss << "connecting"; break;
-        case MODEM_NETWORK_UNKNOWN: ss << "unknown"; break;
+        case MODEM_NETWORK_UNKNOWN: ss << "<span style=\"color:red\">unknown</span>"; break;
         case MODEM_NETWORK_ROAMING: ss << "roaming"; break;
-        default: ss << "cannot get network status"; break;
+        default: ss << "<span style=\"color:red\">cannot get network status</span>"; break;
         }
     }
     ss << "<br>";
     if (is_process_running("smsd"))
         ss << "SMS daemon: running";
     else
-        ss << "SMS daemon: not running";
+        ss << "SMS daemon: <span style=\"color:red\">not running</span>";
     ss << "<h2>Heaters</h2>";
     ss << "Default heater state: ";
     switch (m_heater_default_state) {
@@ -488,7 +488,7 @@ std::string BaseStation::buildWebpage()
     case HEATER_DEFROST: ss << "DEFROST"; break;
     case HEATER_ECO: ss << "ECO"; break;
     case HEATER_COMFORT: ss << "COMFORT/ON"; break;
-    default: ss << "UNKNOWN"; break;
+    default: ss << "<span style=\"color:red\">UNKNOWN</span>"; break;
     }
     ss << "<br>";
 
@@ -530,7 +530,7 @@ std::string BaseStation::buildWebpage()
         case HEATER_DEFROST: ss << "<td>DEFROST</td>"; break;
         case HEATER_ECO: ss << "<td>ECO</td>"; break;
         case HEATER_COMFORT: ss << "<td>COMFORT/ON</td>"; break;
-        default: ss << "<td>UNKNOWN</td>"; break;
+        default: ss << "<td><span style=\"color:red\">UNKNOWN</span></td>"; break;
         }
 
         {
