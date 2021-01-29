@@ -19,6 +19,7 @@
 #include <string.h>
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
+#include <sys/socket.h>
 #include <sys/sysinfo.h>
 #include <sys/utsname.h>
 #include <termios.h>
@@ -496,6 +497,7 @@ std::string BaseStation::buildWebpage()
     ss << "<tr>";
     ss << "<th>Name</th>";
     ss << "<th>MAC address</th>";
+    ss << "<th>IP address</th>";
     ss << "<th>State</th>";
     ss << "<th>Last request timestamp</th>";
     ss << "</tr>";
@@ -524,6 +526,8 @@ std::string BaseStation::buildWebpage()
                     (uint8_t)((mac & 0xFF)));
             ss << "<td>" << buf << "</td>";
         }
+
+        ss << "<td>" << h.getLastIPAddress() << "</td>";
 
         switch (h.getState()) {
         case HEATER_OFF: ss << "<td>OFF</td>"; break;
@@ -721,8 +725,13 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
                 state = it->second;
         }
         {
+            struct sockaddr_in addr;
+	        socklen_t len = sizeof(addr);
+            getpeername(conn.fd, (struct sockaddr *)&addr, &len);
+            char dst[32];
+            inet_ntop(AF_INET, &addr.sin_addr, dst, sizeof(dst));
             std::lock_guard<std::mutex> guard(m_heaters_mutex);
-            m_heaters[mac_addr] = Heater(name);
+            m_heaters[mac_addr] = Heater(name, dst);
             m_heaters[mac_addr].update(state);
         }
         sendHeaterState(conn.fd, state);
