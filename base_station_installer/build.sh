@@ -128,9 +128,11 @@ apt -y upgrade
 apt -y install unattended-upgrades smstools git build-essential i2c-tools python-rpi.gpio python-dev python-serial python-smbus python-jinja2 python-xmltodict python-psutil python-pip dnsutils libmicrohttpd-dev
 
 # Disable HDMI
-echo "Disabling HDMI"
-sed -i 's/exit 0//' /etc/rc.local
-printf "/usr/bin/tvservice -o\nexit 0\n" >> /etc/rc.local
+if ! cat /etc/rc.local | grep -q "tvservice -o"; then
+    echo "Disabling HDMI"
+    sed -i 's/exit 0//' /etc/rc.local
+    printf "/usr/bin/tvservice -o\nexit 0\n" >> /etc/rc.local
+fi
 
 # Configure smstools daemon
 echo "Configuring smstools daemon"
@@ -148,8 +150,10 @@ systemctl enable basestation
 systemctl start basestation
 
 # Change hostname
-echo "Setting hostname"
-echo "127.0.0.1       basestation" >> /etc/hosts
+if ! cat /etc/hosts | grep -q -w basestation; then
+    echo "Setting hostname"
+    echo "127.0.0.1       basestation" >> /etc/hosts
+fi
 echo basestation > /etc/hostname
 
 echo "Setup done. Reboot device."
