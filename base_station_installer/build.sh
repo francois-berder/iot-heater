@@ -14,6 +14,11 @@ if ! [ -x "$(command -v git)" ]; then
     exit 1
 fi
 
+if ! [ -x "$(command -v ssh-keygen)" ]; then
+    echo "Please install ssh-keygen"
+    exit 1
+fi
+
 
 HEATER_REPO="https://github.com/francois-berder/iot-heater.git"
 BRANCH_NAME="master"
