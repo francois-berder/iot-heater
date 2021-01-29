@@ -774,6 +774,13 @@ void BaseStation::parseCommands()
             std::stringstream ss;
             ss << "Received SMS from phone number \"" << from << "\" not in whitelist";
             Logger::warn(ss.str());
+
+            /*
+             * Silently drop the message to avoid a
+             * denial of service attack. Otherwise, an attacker
+             * could make the base station sends tons of SMS
+             * which could cost lots of money.
+             */
             return;
         }
 
