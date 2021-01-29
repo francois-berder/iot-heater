@@ -17,10 +17,11 @@ fi
 
 HEATER_REPO="https://github.com/francois-berder/iot-heater.git"
 BRANCH_NAME="master"
-while getopts "hr:b:" arg; do
+BASESTATION_PIN="1234"
+while getopts "hr:b:p:" arg; do
   case $arg in
     h)
-      echo "Usage: $0 [-h] [-r git-repository]"
+      echo "Usage: $0 [-h] [-r git-repository] [-p pin]"
       exit 0
       ;;
     r)
@@ -28,6 +29,9 @@ while getopts "hr:b:" arg; do
       ;;
     b)
       BRANCH_NAME=$OPTARG
+      ;;
+    p)
+      BASESTATION_PIN=$OPTARG
       ;;
   esac
 done
@@ -143,7 +147,7 @@ service smstools restart
 # Install base station server
 echo "Installing base station server"
 tar xf heater.tar.gz -C "${TMPDIR}"
-make -C "${TMPDIR}/heater/base_station"
+make -C "${TMPDIR}/heater/base_station" BASESTATION_PIN=${BASESTATION_PIN}
 install -m 755 "${TMPDIR}/heater/base_station/build/release/bin/base_station-release" /usr/local/bin/base_station
 install -m 644 basestation.service /lib/systemd/system/basestation.service
 systemctl enable basestation
