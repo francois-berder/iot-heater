@@ -12,6 +12,11 @@ Run the following command to install arduino-cli:
 curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.sh | BINDIR=/usr/local/bin sh
 ```
 
+Install ESP8266 board in Arduino IDE:
+  1. Open File -> Preferences (or Arduino -> Preferences on MacOS)
+  2. Enter `http://arduino.esp8266.com/stable/package_esp8266com_index.json` in the Additional Boards Manager URLs field
+  3. Go to Tools -> Board -> Boards Manager and install ESP8266 by ESP8266 Community
+
 Arduino library dependencies:
 
 - [ESP8266mDNS](https://github.com/esp8266/Arduino/tree/master/libraries/ESP8266mDNS)
