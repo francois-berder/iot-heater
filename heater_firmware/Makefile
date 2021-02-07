@@ -24,8 +24,6 @@ all: $(BINDIR)/$(TARGET)
 $(BINDIR)/$(TARGET): $(SRCS) | $(BINDIR)
 	arduino-cli compile -b $(BOARD_FQN) --build-properties compiler.cpp.extra_flags="$(CFLAGS)" --build-path $(CURDIR)/build --build-cache-path $(CURDIR)/.cache -o $@
 
-$(SRCS):
-
 $(BINDIR):
 	mkdir -p $@
 
