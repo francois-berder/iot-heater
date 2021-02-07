@@ -531,7 +531,7 @@ std::string BaseStation::buildWebpage()
             ss << "<td>" << buf << "</td>";
         }
 
-        ss << "<td>" << h.getLastIPAddress() << "</td>";
+        ss << "<td><a href=\"http://" << h.getLastIPAddress() << "\">" << h.getLastIPAddress() << "</a></td>";
 
         switch (h.getState()) {
         case HEATER_OFF: ss << "<td>OFF</td>"; break;
