@@ -2,6 +2,7 @@
 #include "commissioned.h"
 #include "heater.h"
 #include "settings.h"
+#include "uptime_formatter.h"
 #include "version.h"
 #include "webpages.h"
 #include "Arduino.h"
@@ -268,6 +269,7 @@ void setup_commissioned()
                     ESP.getChipId(),
                     FW_VERSION,
                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
+                    uptime_formatter::getUptime().c_str(),
                     WiFi.RSSI(),
                     basestation_addr,
                     heater_state_str,
