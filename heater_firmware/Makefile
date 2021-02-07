@@ -11,6 +11,7 @@ SRCS := board.h \
 		heater_firmware.ino \
 		settings.cpp settings.h \
 		uncommissioned.cpp uncommissioned.h \
+		version.h \
 		webpages.cpp webpages.h
 
 GIT_HASH := $(shell git rev-parse HEAD | head -c 12)$(shell git diff --quiet || echo '-dirty')
