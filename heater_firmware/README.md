@@ -4,7 +4,7 @@ This project aims at controlling an electric heater using an ESP8266 and a custo
 
 ## Requirements
 
-[arduino-cli](https://github.com/arduino/arduino-cli) is used to compile and upload binary to the ESP8266.
+[arduino-cli](https://github.com/arduino/arduino-cli) is used to compile and upload binary to the ESP8266 if you are using the Makefile. If you are using the Arduino IDE, you can skip this step.
 
 Run the following command to install arduino-cli:
 
