@@ -28,7 +28,7 @@ Arduino library dependencies:
 
 ## Build & Flash instructions
 
-To compile and flash the board, use these commands:
+You can either use the Arduino IDE to compile and flash the board, or use the Makefile (requires `arduino-cli`) and run these commands:
 
 ```sh
 make
