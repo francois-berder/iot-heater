@@ -122,7 +122,11 @@ std::string get_uptime_str()
     secs -= minutes * 60;
 
     std::stringstream ss;
-    ss << days << " days " << hours << "h " << minutes << "m " << secs << "s";
+    if (days <= 1)
+        ss << days << " day ";
+    else
+        ss << days << " days ";
+    ss << hours << "h " << minutes << "m " << secs << "s";
     return ss.str();
 }
 
