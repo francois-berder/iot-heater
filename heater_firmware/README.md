@@ -14,10 +14,12 @@ curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.
 
 Arduino library dependencies:
 
+- [ESP8266mDNS](https://github.com/esp8266/Arduino/tree/master/libraries/ESP8266mDNS)
 - [ESPAsyncTCP](https://github.com/me-no-dev/ESPAsyncTCP)
 - [ESPAsyncWebServer](https://github.com/me-no-dev/ESPAsyncWebServer)
 - [ESP8266TrueRandom](https://github.com/marvinroger/ESP8266TrueRandom)
 - [NTPClient](https://github.com/arduino-libraries/NTPClient)
+- [Uptime-Library](https://github.com/YiannisBourkelis/Uptime-Library)
 
 ## Build & Flash instructions
 
