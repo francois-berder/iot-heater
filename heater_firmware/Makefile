@@ -10,7 +10,7 @@ SRCS := board.h \
 		heater.h \
 		heater_firmware.ino \
 		settings.cpp settings.h \
-		uncomissioned.cpp uncommissioned.h \
+		uncommissioned.cpp uncommissioned.h \
 		webpages.cpp webpages.h
 
 GIT_HASH := $(shell git rev-parse HEAD | head -c 12)$(shell git diff --quiet || echo '-dirty')
