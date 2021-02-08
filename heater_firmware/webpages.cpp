@@ -56,7 +56,7 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
   <br>
   Uptime: %s
   <br>
-  WiFi signal strength (RSSI): %d dBm
+  WiFi signal strength (RSSI): %d dBm (%s)
   <br>
   Base station addr: %s
   <br>

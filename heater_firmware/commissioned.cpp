@@ -332,6 +332,18 @@ void setup_commissioned()
         byte mac[6];
         WiFi.macAddress(mac);
         build_errors_webpage(errors_str);
+        long rssi = WiFi.RSSI();
+        char wifi_level[32];
+        if (rssi > -67)
+            strcpy(wifi_level, "excellent");
+        else if (rssi > -70)
+            strcpy(wifi_level, "very good");
+        else if (rssi > -80)
+            strcpy(wifi_level, "okay");
+        else if (rssi > -90)
+            strcpy(wifi_level, "not good");
+        else
+            strcpy(wifi_level, "unusable");
         sprintf(webpage_buffer, commissioned_index_html,
                     name,
                     name,
@@ -339,7 +351,7 @@ void setup_commissioned()
                     FW_VERSION,
                     mac[0], mac[1], mac[2], mac[3], mac[4], mac[5],
                     uptime_formatter::getUptime().c_str(),
-                    WiFi.RSSI(),
+                    rssi, wifi_level,
                     basestation_addr,
                     heater_state_str,
                     last_heater_state_timestamp,
