@@ -7,6 +7,7 @@
 #include "webpages.h"
 #include "Arduino.h"
 #include "Ticker.h"
+#include <cppQueue.h>
 #include <ESP8266WiFi.h>
 #include <ESP8266mDNS.h>
 #include <ESPAsyncTCP.h>
@@ -25,7 +26,7 @@ static WiFiEventHandler wifi_got_ip_handler;
 
 #define WEB_SERVER_PORT       (80)
 static AsyncWebServer server(WEB_SERVER_PORT);
-static char webpage_buffer[1024];
+static char webpage_buffer[2048];
 static bool button_pressed;
 static unsigned long button_pressed_start;
 
@@ -76,6 +77,21 @@ struct __attribute__((packed)) message_t {
     } header;
     uint8_t data[48];
 };
+
+#define MAX_ERROR_RECORDED      (5)
+enum error_code_t {
+    CANNOT_CONNECT_TO_BASE_STATION,
+    REPLY_TIMEOUT,
+    MESSAGE_PROTOCOL_NOT_SUPPORTED,
+    INVALID_MESSAGE_TYPE,
+    INVALID_HEATER_STATE,
+};
+struct ErrorRecord {
+    enum error_code_t code;
+    unsigned long timestamp;
+};
+static cppQueue last_errors(sizeof(struct ErrorRecord), MAX_ERROR_RECORDED, FIFO);
+static char errors_str[512];
 
 static void update_leds()
 {
@@ -167,6 +183,58 @@ static void apply_heater_state(void)
         digitalWrite(POSITIVE_OUTPUT_PIN, 1);
         digitalWrite(NEGATIVE_OUTPUT_PIN, 0);
         break;
+    }
+}
+
+static void record_error(enum error_code_t code)
+{
+    ErrorRecord rec;
+    rec.code = code;
+    rec.timestamp = ntpClient.getEpochTime();
+
+    if (last_errors.isFull())
+        last_errors.drop();
+    last_errors.push(&rec);
+}
+
+static void build_errors_webpage(char *buf)
+{
+    if (last_errors.isEmpty()) {
+        strcpy(buf, "No errors");
+        return;
+    }
+
+    buf[0] = '\0';
+    int i = 0;
+    while (i < last_errors.getCount()) {
+        ErrorRecord rec;
+        last_errors.peekIdx(&rec, i);
+
+        switch (rec.code) {
+        case CANNOT_CONNECT_TO_BASE_STATION:
+            strcat(buf, "Cannot connect to base station");
+            break;
+        case REPLY_TIMEOUT:
+            strcat(buf, "Timeout waiting for reply from base station");
+            break;
+        case MESSAGE_PROTOCOL_NOT_SUPPORTED:
+            strcat(buf, "Message protocol not supported");
+            break;
+        case INVALID_MESSAGE_TYPE:
+            strcat(buf, "Received invalid message type");
+            break;
+        case INVALID_HEATER_STATE:
+            strcat(buf, "Received invalid heater state");
+            break;
+        }
+
+        char tmp[32];
+        sprintf(tmp, ", timestamp=%lu", rec.timestamp);
+        strcat(buf, tmp);
+
+        ++i;
+        if (i < last_errors.getCount())
+            strcat(buf, "<br>");
     }
 }
 
@@ -263,6 +331,7 @@ void setup_commissioned()
         }
         byte mac[6];
         WiFi.macAddress(mac);
+        build_errors_webpage(errors_str);
         sprintf(webpage_buffer, commissioned_index_html,
                     name,
                     name,
@@ -274,7 +343,8 @@ void setup_commissioned()
                     basestation_addr,
                     heater_state_str,
                     last_heater_state_timestamp,
-                    request_state_failure_since_boot_counter);
+                    request_state_failure_since_boot_counter,
+                    errors_str);
         request->send_P(200, "text/html", webpage_buffer);
         }
     );
@@ -353,6 +423,7 @@ void loop_commissioned()
                 log_to_serial("Timeout while waiting for heater state reply from base station");
                 request_state_failure_count++;
                 request_state_failure_since_boot_counter++;
+                record_error(REPLY_TIMEOUT);
             } else {
                 struct message_t heater_state_reply_msg;
                 client.read((uint8_t *)&heater_state_reply_msg, sizeof(heater_state_reply_msg));
@@ -363,16 +434,19 @@ void loop_commissioned()
                     log_to_serial(buffer);
                     request_state_failure_count++;
                     request_state_failure_since_boot_counter++;
+                    record_error(MESSAGE_PROTOCOL_NOT_SUPPORTED);
                 } else if (heater_state_reply_msg.header.msg_type == REQ_HEATER_STATE) {
                     log_to_serial("Discarding message: not expecting REQ_HEATER_STATE from base station");
                     request_state_failure_count++;
                     request_state_failure_since_boot_counter++;
+                    record_error(INVALID_MESSAGE_TYPE);
                 } else if (heater_state_reply_msg.header.msg_type != HEATER_STATE_REPLY) {
                     char buffer[128];
                     sprintf(buffer, "Invalid message type %u", heater_state_reply_msg.header.msg_type);
                     log_to_serial(buffer);
                     request_state_failure_count++;
                     request_state_failure_since_boot_counter++;
+                    record_error(INVALID_MESSAGE_TYPE);
                 } else {
                     uint8_t new_heater_state = heater_state_reply_msg.data[0];
                     switch (new_heater_state) {
@@ -395,6 +469,7 @@ void loop_commissioned()
                           log_to_serial(buffer);
                           request_state_failure_count++;
                           request_state_failure_since_boot_counter++;
+                          record_error(INVALID_HEATER_STATE);
                         }
                         break;
                     }
@@ -406,6 +481,7 @@ void loop_commissioned()
             log_to_serial(buf);
             request_state_failure_count++;
             request_state_failure_since_boot_counter++;
+            record_error(CANNOT_CONNECT_TO_BASE_STATION);
         }
 
         client.stop();

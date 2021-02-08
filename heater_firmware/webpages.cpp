@@ -70,6 +70,8 @@ const char commissioned_index_html[] PROGMEM = R"rawliteral(
   <form action="/unregister" method="post">
       <button name="unregister" value="unregister">Reset configuration</button>
   </form>
+  <h2>Errors</h2>
+  %s
 </body>
 </html>
 )rawliteral";
