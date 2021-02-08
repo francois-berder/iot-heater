@@ -544,7 +544,7 @@ std::string BaseStation::buildWebpage()
         {
             time_t ts = h.getLastRequestTimestamp();
             char buf[128];
-            strftime(buf, sizeof(buf) - 1, "%d-%m-%Y %H:%M:%S", localtime(&ts));
+            strftime(buf, sizeof(buf) - 1, "%Y-%m-%d %H:%M:%S", localtime(&ts));
             ss << "<td>" << buf << "</td>";
         }
 
