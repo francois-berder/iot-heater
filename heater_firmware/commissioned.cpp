@@ -85,6 +85,8 @@ enum error_code_t {
     MESSAGE_PROTOCOL_NOT_SUPPORTED,
     INVALID_MESSAGE_TYPE,
     INVALID_HEATER_STATE,
+    MESSAGE_READ_FAILURE,
+    REQUEST_WRITE_FAILURE,
 };
 struct ErrorRecord {
     enum error_code_t code;
@@ -225,6 +227,12 @@ static void build_errors_webpage(char *buf)
             break;
         case INVALID_HEATER_STATE:
             strcat(buf, "Received invalid heater state");
+            break;
+        case MESSAGE_READ_FAILURE:
+            strcat(buf, "Failed to read message from client");
+            break;
+        case REQUEST_WRITE_FAILURE:
+            strcat(buf, "Failed to send message to base station");
             break;
         }
 
@@ -424,7 +432,23 @@ void loop_commissioned()
             heater_state_req_msg.header.counter = msg_counter++;
             settings_get_name((char *)heater_state_req_msg.data);
 
-            client.write((uint8_t *)&heater_state_req_msg, sizeof(heater_state_req_msg));
+            {
+                size_t bytes_to_send_count = sizeof(heater_state_req_msg);
+                uint8_t *dst = (uint8_t *)&heater_state_req_msg;
+                while (bytes_to_send_count > 0) {
+                    size_t ret = client.write(dst, bytes_to_send_count);
+                    if (ret <= 0) {
+                        log_to_serial("Failed to read message from WiFi client");
+                        request_state_failure_count++;
+                        request_state_failure_since_boot_counter++;
+                        record_error(REQUEST_WRITE_FAILURE);
+                        goto client_cleanup;
+                    }
+
+                    dst += ret;
+                    bytes_to_send_count -= ret;
+                }
+            }
 
             unsigned long start = millis();
             while (millis() - start < HEATER_STATE_TIMEOUT) {
@@ -438,7 +462,17 @@ void loop_commissioned()
                 record_error(REPLY_TIMEOUT);
             } else {
                 struct message_t heater_state_reply_msg;
-                client.read((uint8_t *)&heater_state_reply_msg, sizeof(heater_state_reply_msg));
+                int ret;
+
+                /* Read and check that we read an entire message */
+                ret = client.read((uint8_t *)&heater_state_reply_msg, sizeof(heater_state_reply_msg));
+                if (ret != sizeof(heater_state_reply_msg)) {
+                    log_to_serial("Failed to read message from WiFi client");
+                    request_state_failure_count++;
+                    request_state_failure_since_boot_counter++;
+                    record_error(MESSAGE_READ_FAILURE);
+                    goto client_cleanup;
+                }
 
                 if (heater_state_reply_msg.header.protocol_version != 1) {
                     char buffer[128];
@@ -496,6 +530,7 @@ void loop_commissioned()
             record_error(CANNOT_CONNECT_TO_BASE_STATION);
         }
 
+client_cleanup:
         client.stop();
     }
 
