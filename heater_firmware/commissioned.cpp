@@ -24,6 +24,8 @@ static WiFiEventHandler wifi_connected_handler;
 static WiFiEventHandler wifi_disconnected_handler;
 static WiFiEventHandler wifi_got_ip_handler;
 
+#define CONNECTION_MAX_ATTEMPT    (3)
+
 #define WEB_SERVER_PORT       (80)
 static AsyncWebServer server(WEB_SERVER_PORT);
 static char webpage_buffer[2048];
@@ -421,7 +423,24 @@ void loop_commissioned()
         events &= ~SEND_HEATER_STATE_REQ_EV;
 
         WiFiClient client;
-        if (client.connect(basestation_addr, BASE_STATION_PORT)) {
+        bool connection_established = false;
+
+        int attempts = CONNECTION_MAX_ATTEMPT;
+        do {
+            connection_established = client.connect(basestation_addr, BASE_STATION_PORT);
+            if (!connection_established)
+                delay(50);
+            attempts--;
+        } while (!connection_established && attempts > 0);
+
+        if (!connection_established) {
+            char buf[128];
+            sprintf("Failed to connect to base station (hostname/ip=%s)", basestation_addr);
+            log_to_serial(buf);
+            request_state_failure_count++;
+            request_state_failure_since_boot_counter++;
+            record_error(CANNOT_CONNECT_TO_BASE_STATION);
+        } else {
             log_to_serial("Sending heater state request to base station");
 
             struct message_t heater_state_req_msg;
@@ -510,26 +529,18 @@ void loop_commissioned()
                         break;
                     default:
                         {
-                          char buffer[64];
-                          sprintf(buffer, "Received invalid heater state %d from base station", new_heater_state);
-                          log_to_serial(buffer);
-                          request_state_failure_count++;
-                          request_state_failure_since_boot_counter++;
-                          record_error(INVALID_HEATER_STATE);
+                            char buffer[64];
+                            sprintf(buffer, "Received invalid heater state %d from base station", new_heater_state);
+                            log_to_serial(buffer);
+                            request_state_failure_count++;
+                            request_state_failure_since_boot_counter++;
+                            record_error(INVALID_HEATER_STATE);
                         }
                         break;
                     }
                 }
             }
-        } else {
-            char buf[128];
-            sprintf("Failed to connect to base station (hostname/ip=%s)", basestation_addr);
-            log_to_serial(buf);
-            request_state_failure_count++;
-            request_state_failure_since_boot_counter++;
-            record_error(CANNOT_CONNECT_TO_BASE_STATION);
         }
-
 client_cleanup:
         client.stop();
     }
