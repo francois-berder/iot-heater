@@ -481,11 +481,20 @@ void loop_commissioned()
                 record_error(REPLY_TIMEOUT);
             } else {
                 struct message_t heater_state_reply_msg;
-                int ret;
+                unsigned int bytes_read;
+                uint8_t *dst;
 
                 /* Read and check that we read an entire message */
-                ret = client.read((uint8_t *)&heater_state_reply_msg, sizeof(heater_state_reply_msg));
-                if (ret != sizeof(heater_state_reply_msg)) {
+                dst = (uint8_t *)&heater_state_reply_msg;
+                bytes_read = 0;
+                while (bytes_read < sizeof(heater_state_reply_msg)) {
+                    int ret = client.read(dst, sizeof(heater_state_reply_msg) - bytes_read);
+                    if (ret <= 0)
+                        break;
+                    dst += ret;
+                    bytes_read += ret;
+                }
+                if (bytes_read < sizeof(heater_state_reply_msg)) {
                     log_to_serial("Failed to read message from WiFi client");
                     request_state_failure_count++;
                     request_state_failure_since_boot_counter++;
