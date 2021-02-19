@@ -474,7 +474,7 @@ void loop_commissioned()
                 if (client.available() >= sizeof(struct message_t))
                     break;
             }
-            if (millis() - start > HEATER_STATE_TIMEOUT) {
+            if (millis() - start >= HEATER_STATE_TIMEOUT) {
                 log_to_serial("Timeout while waiting for heater state reply from base station");
                 request_state_failure_count++;
                 request_state_failure_since_boot_counter++;
