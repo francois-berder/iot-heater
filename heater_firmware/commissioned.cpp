@@ -471,7 +471,7 @@ void loop_commissioned()
 
             unsigned long start = millis();
             while (millis() - start < HEATER_STATE_TIMEOUT) {
-                if (client.available() >= 64)
+                if (client.available() >= sizeof(struct message_t))
                     break;
             }
             if (millis() - start > HEATER_STATE_TIMEOUT) {
