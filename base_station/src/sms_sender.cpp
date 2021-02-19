@@ -37,7 +37,7 @@ void SMSSender::sendSMS(const std::string &to, const std::string &content)
     if (access(MODULE_3G_DEVPATH, F_OK ) != 0) {
         std::stringstream ss;
         ss << "3G module not detected (no ";
-        ss << MODULE_3G_DEVPATH << "found). Discarding text message.";
+        ss << MODULE_3G_DEVPATH << " found). Discarding text message.";
         Logger::err(ss.str());
         return;
     }
