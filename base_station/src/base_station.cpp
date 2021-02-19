@@ -597,13 +597,25 @@ void BaseStation::handleConnections()
                 if (itor->fd != fds[i].fd)
                     continue;
                 uint8_t data[MESSAGE_SIZE];
-                int ret = read(fds[i].fd, data, sizeof(data));
-                if (ret == 0) {
-                    close(fds[i].fd);
-                    m_connections.erase(itor);
-                } else if (ret == sizeof(data)) {
-                    parseMessage(*itor, data);
+                uint8_t *dst = data;
+                unsigned int bytes_read = 0;
+                while (bytes_read < sizeof(data)) {
+                    int ret = read(fds[i].fd, dst, sizeof(data) - bytes_read);
+                    if (ret < 0) {
+                        bytes_read = 0;
+                        break;
+                    } else if (ret == 0) {
+                        bytes_read = 0;
+                        close(fds[i].fd);
+                        itor = m_connections.erase(itor);
+                        break;
+                    }
+
+                    dst += ret;
+                    bytes_read += ret;
                 }
+                if (bytes_read == sizeof(data))
+                    parseMessage(*itor, data);
                 break;
             }
         }
