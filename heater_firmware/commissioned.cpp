@@ -457,7 +457,7 @@ void loop_commissioned()
                 while (bytes_to_send_count > 0) {
                     size_t ret = client.write(dst, bytes_to_send_count);
                     if (ret <= 0) {
-                        log_to_serial("Failed to read message from WiFi client");
+                        log_to_serial("Failed to write message to base station");
                         request_state_failure_count++;
                         request_state_failure_since_boot_counter++;
                         record_error(REQUEST_WRITE_FAILURE);
@@ -495,7 +495,7 @@ void loop_commissioned()
                     bytes_read += ret;
                 }
                 if (bytes_read < sizeof(heater_state_reply_msg)) {
-                    log_to_serial("Failed to read message from WiFi client");
+                    log_to_serial("Failed to read message from base station");
                     request_state_failure_count++;
                     request_state_failure_since_boot_counter++;
                     record_error(MESSAGE_READ_FAILURE);
