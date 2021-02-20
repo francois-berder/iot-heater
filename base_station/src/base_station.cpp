@@ -1187,6 +1187,10 @@ void BaseStation::sendHeaterState(int fd, HeaterState state)
             break;
         sent += ret;
     }
+    if (sent != MESSAGE_SIZE)
+        Logger::err("Failed to send heater state");
+    else
+        Logger::debug("Sent heater state reply to heater controller");
 }
 
 void BaseStation::checkWifi()
