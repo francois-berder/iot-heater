@@ -655,7 +655,19 @@ void BaseStation::checkStaleConnections()
 void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
 {
     struct message_header_t header;
+    uint8_t *d =data;
 
+{
+    std::stringstream ss;
+    ss << "data=[";
+    char buf[32];
+    for (int i = 0;i < 64; ++i) {
+        sprintf(buf, "0x%02X, ", d[i]);
+        ss << buf;
+    }
+    ss << "]";
+    Logger::debug(ss.str());
+}
     /* Parse header */
     header.version = *data++;
     header.type = *data++;
@@ -721,7 +733,7 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
                     ss << name << " MAC=";
                 macToStr(ss, header.mac_addr) << " rebooted a few minutes ago.";
                 char buf[64];
-                sprintf(buf, " NEW=%016X, OLD=%016X", header.counter, it->second)l
+                sprintf(buf, " NEW=%llx, OLD=%llx", header.counter, it->second);
                 ss << buf;
                 Logger::warn(ss.str());
             }
