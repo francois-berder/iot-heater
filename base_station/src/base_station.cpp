@@ -34,6 +34,7 @@
 
 #define STATE_FILE_PATH     "/var/lib/base_station.state"
 
+#define CHECK_STALE_CONN_PERIOD     (5 * 60 * 1000)     /* in milliseconds */
 #define CHECK_WIFI_PERIOD           (60 * 1000)         /* in milliseconds */
 #define WIFI_ERROR_THRESHOLD        (15)
 #define CHECK_LOST_DEVICES_PERIOD   (60 * 60 * 1000)    /* in milliseconds */
@@ -373,6 +374,9 @@ m_send_boot_msg()
     if (!loadState())
         saveState();
 
+    /* Start stale timer */
+    m_stale_timer.start(CHECK_STALE_CONN_PERIOD, true);
+
     /* Start check wifi timer */
     m_check_wifi_timer.start(CHECK_WIFI_PERIOD, true);
 
@@ -641,7 +645,7 @@ void BaseStation::checkStaleConnections()
         std::chrono::steady_clock::time_point t = std::chrono::steady_clock::now();
         auto itor = m_connections.begin();
         while (itor != m_connections.end()) {
-            if (std::chrono::duration_cast<std::chrono::minutes>(t - itor->last_seen) > std::chrono::minutes(30)) {
+            if (std::chrono::duration_cast<std::chrono::minutes>(t - itor->last_seen) > std::chrono::minutes(10)) {
                 Logger::info("Removing stale connection");
                 close(itor->fd);
                 itor = m_connections.erase(itor);
