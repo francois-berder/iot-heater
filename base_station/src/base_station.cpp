@@ -568,20 +568,18 @@ void BaseStation::handleConnections()
     struct pollfd *fds;
     int nfds;
 
-    {
-        std::lock_guard<std::mutex> guard(m_connections_mutex);
+    std::lock_guard<std::mutex> guard(m_connections_mutex);
 
-        if (m_connections.empty())
-            return;
+    if (m_connections.empty())
+        return;
 
-        nfds = m_connections.size();
-        fds = new struct pollfd[nfds];
-        int i = 0;
-        for (auto &conn : m_connections) {
-            fds[i].fd = conn.fd;
-            fds[i].events = POLLIN;
-            ++i;
-        }
+    nfds = m_connections.size();
+    fds = new struct pollfd[nfds];
+    int i = 0;
+    for (auto &conn : m_connections) {
+        fds[i].fd = conn.fd;
+        fds[i].events = POLLIN;
+        ++i;
     }
 
     int ret = poll(fds, nfds, 0);
@@ -594,34 +592,30 @@ void BaseStation::handleConnections()
         if (!(fds[i].revents & POLLIN))
             continue;
 
-        {
-            std::lock_guard<std::mutex> guard(m_connections_mutex);
-
-            for (auto itor = m_connections.begin(); itor != m_connections.end(); ++itor) {
-                if (itor->fd != fds[i].fd)
-                    continue;
-                uint8_t data[MESSAGE_SIZE];
-                uint8_t *dst = data;
-                unsigned int bytes_read = 0;
-                while (bytes_read < sizeof(data)) {
-                    int ret = read(fds[i].fd, dst, sizeof(data) - bytes_read);
-                    if (ret < 0) {
-                        bytes_read = 0;
-                        break;
-                    } else if (ret == 0) {
-                        bytes_read = 0;
-                        close(fds[i].fd);
-                        itor = m_connections.erase(itor);
-                        break;
-                    }
-
-                    dst += ret;
-                    bytes_read += ret;
+        for (auto itor = m_connections.begin(); itor != m_connections.end(); ++itor) {
+            if (itor->fd != fds[i].fd)
+                continue;
+            uint8_t data[MESSAGE_SIZE];
+            uint8_t *dst = data;
+            unsigned int bytes_read = 0;
+            while (bytes_read < sizeof(data)) {
+                int ret = read(fds[i].fd, dst, sizeof(data) - bytes_read);
+                if (ret < 0) {
+                    bytes_read = 0;
+                    break;
+                } else if (ret == 0) {
+                    bytes_read = 0;
+                    close(fds[i].fd);
+                    itor = m_connections.erase(itor);
+                    break;
                 }
-                if (bytes_read == sizeof(data))
-                    parseMessage(*itor, data);
-                break;
+
+                dst += ret;
+                bytes_read += ret;
             }
+            if (bytes_read == sizeof(data))
+                parseMessage(*itor, data);
+            break;
         }
     }
 
