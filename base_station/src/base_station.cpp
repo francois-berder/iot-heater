@@ -735,7 +735,7 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
                 ss << "It seems that device ";
                 if (!name.empty())
                     ss << name << " MAC=";
-                macToStr(ss, header.mac_addr) << " rebooted a few minutes ago.";
+                macToStr(ss, header.mac_addr) << " rebooted.";
                 char buf[64];
                 sprintf(buf, " NEW=%llx, OLD=%llx", header.counter, it->second);
                 ss << buf;
@@ -747,7 +747,7 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
                 if (!name.empty())
                     ss << name << " MAC=";
                 macToStr(ss, header.mac_addr);
-                ss << " probably rebooted a few minutes ago.",
+                ss << " rebooted.",
                 SMSSender::instance().sendSMS(m_emergency_phone, ss.str());
             }
         }
