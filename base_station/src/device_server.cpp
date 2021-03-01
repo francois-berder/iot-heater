@@ -118,6 +118,8 @@ void DeviceServer::run()
 
             if (m_callback)
                 m_callback(client_fd);
+            else
+                close(client_fd);
         }
     }
 }
