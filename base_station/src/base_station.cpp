@@ -723,7 +723,7 @@ void BaseStation::parseMessage(DeviceConnection &conn, uint8_t *data)
         /* Check if device rebooted since last message */
         auto it = m_heater_counter.find(mac_addr);
         if (it != m_heater_counter.end()
-        &&  llabs(header.counter - it->second) > 3LL) {
+        &&  llabs(header.counter - it->second) > 100LL) {
             {
                 std::stringstream ss;
                 ss << "It seems that device ";
