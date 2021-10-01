@@ -18,7 +18,7 @@ Do not plug anything to the Raspberry Pi apart from the microUSB to power the de
 3. Add `wpa_supplicant.conf` in /boot with the following content:
 
 ```
-country=GB
+country=FR
 ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 update_config=1
 
