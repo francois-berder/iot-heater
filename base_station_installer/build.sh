@@ -26,7 +26,7 @@ BASESTATION_PIN="1234"
 while getopts "hr:b:p:" arg; do
   case $arg in
     h)
-      echo "Usage: $0 [-h] [-r git-repository] [-p pin]"
+      echo "Usage: $0 [-h] [-r git-repository] [-b git-branch] [-p pin]"
       exit 0
       ;;
     r)
