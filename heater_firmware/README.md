@@ -15,7 +15,7 @@ curl -fsSL https://raw.githubusercontent.com/arduino/arduino-cli/master/install.
 Install ESP8266 board in Arduino IDE:
   1. Open File -> Preferences (or Arduino -> Preferences on MacOS)
   2. Enter `http://arduino.esp8266.com/stable/package_esp8266com_index.json` in the Additional Boards Manager URLs field
-  3. Go to Tools -> Board -> Boards Manager and install ESP8266 by ESP8266 Community
+  3. Go to Tools -> Board -> Boards Manager and install ESP8266 by ESP8266 Community (version >= 3.0.2)
 
 Arduino library dependencies:
 
