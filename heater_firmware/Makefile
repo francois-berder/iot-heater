@@ -3,7 +3,7 @@ SERIAL_PORT ?= /dev/ttyUSB0
 
 BINDIR := bin
 
-TARGET := heater_firmware.bin
+TARGET := heater_firmware.ino.bin
 
 SRCS := board.h \
 		commissioned.cpp commissioned.h \
@@ -22,7 +22,7 @@ CFLAGS += -DGIT_HASH=$(GIT_HASH) -DBUILD_TIME=$(BUILD_TIME)
 all: $(BINDIR)/$(TARGET)
 
 $(BINDIR)/$(TARGET): $(SRCS) | $(BINDIR)
-	arduino-cli compile -b $(BOARD_FQN) --build-properties compiler.cpp.extra_flags="$(CFLAGS)" --build-path $(CURDIR)/build --build-cache-path $(CURDIR)/.cache -o $@
+	arduino-cli compile -b $(BOARD_FQN) --build-property compiler.cpp.extra_flags="$(CFLAGS)" --build-path $(CURDIR)/build --build-cache-path $(CURDIR)/.cache --output-dir $(BINDIR)
 
 $(BINDIR):
 	mkdir -p $@
