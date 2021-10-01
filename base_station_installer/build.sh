@@ -81,7 +81,6 @@ EOM
 
 cat > "${TMPDIR}/smsd.whitelist" <<- EOM
 33 # Allow any destination from France
-44 # Allow any destination from UK
 EOM
 
 cat > "${TMPDIR}/basestation.service" <<- EOM
