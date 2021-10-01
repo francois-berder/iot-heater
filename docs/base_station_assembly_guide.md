@@ -23,6 +23,10 @@ device.
 
 The SIM5320E module requires a 4V power supply capable of handling 2A bursts. On the SIM5320E module, a diode lowers the input voltage from 5V to around 4V. Hence, both the Raspberry Pi and the SIM5320E must be powered with a 5V power supply. However, we cannot provide power to the 3G module from the USB connector of the Pi. That is why we need to solder two wires from the Raspberry Pi to the SIM5320E. The large capacitor is there to ensure that the SIM5320E and the Raspberry Pi will not brown when the SIM5320E draws lots of current.
 
+5. Disable SIM card PIN (Can be done on any phone)
+6. Insert SIM card in SIM5320E slot
+7. Connect the raspberry Pi and SIM5230E with a micro-USB to micro-USB cable.
+
 ## Power on
 
 1. Connect to the Raspberry Pi via ssh using public/private keys printed while building the installer.
