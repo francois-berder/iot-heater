@@ -4,10 +4,11 @@
 #include <poll.h>
 #include <sstream>
 #include <stdexcept>
-#include <sys/types.h>
 #include <sys/socket.h>
+#include <sys/types.h>
 #include <thread>
 #include <unistd.h>
+#include <utility>
 
 
 DeviceServer::DeviceServer(unsigned int serverPort, DeviceServerNewDeviceCallback cb):

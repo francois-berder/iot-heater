@@ -1,7 +1,7 @@
 #include "logger.hpp"
 #include "sms_receiver.hpp"
 #include <fcntl.h>
-#include <limits.h>
+#include <climits>
 #include <poll.h>
 #include <sstream>
 #include <stdexcept>
@@ -75,7 +75,7 @@ void SMSReceiver::run()
     while (m_running) {
         struct inotify_event *event;
         char __attribute__ ((aligned(8))) buf[BUF_LEN] ;
-        int ret;
+        ssize_t ret;
 
         ret = poll(fds, 1, 100);
         if (ret < 0) {

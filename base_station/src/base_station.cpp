@@ -6,6 +6,7 @@
 #include <arpa/inet.h>
 #include <array>
 #include <cstdlib>
+#include <cstring>
 #include <dirent.h>
 #include <fcntl.h>
 #include <fstream>
@@ -16,7 +17,6 @@
 #include <net/if.h>
 #include <poll.h>
 #include <sstream>
-#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>
@@ -201,7 +201,7 @@ enum modem_status_t check_3g_connection()
         std::string reply;
         while (1) {
             char buf[32];
-            int ret = read(fd, buf, sizeof(buf) - 1);
+            ssize_t ret = read(fd, buf, sizeof(buf) - 1);
             if (ret <= 0)
                 break;
             buf[ret] = '\0';
@@ -222,7 +222,7 @@ enum modem_status_t check_3g_connection()
         std::string reply;
         while (1) {
             char buf[32];
-            int ret = read(fd, buf, sizeof(buf) - 1);
+            ssize_t ret = read(fd, buf, sizeof(buf) - 1);
             if (ret <= 0)
                 break;
             buf[ret] = '\0';
@@ -243,7 +243,7 @@ enum modem_status_t check_3g_connection()
         std::string reply;
         while (1) {
             char buf[32];
-            int ret = read(fd, buf, sizeof(buf) - 1);
+            ssize_t ret = read(fd, buf, sizeof(buf) - 1);
             if (ret <= 0)
                 break;
             buf[ret] = '\0';
@@ -513,7 +513,7 @@ std::string BaseStation::buildWebpage()
     {
         std::lock_guard<std::mutex> guard(m_heaters_mutex);
 
-    for (auto it : m_heaters) {
+    for (const auto& it : m_heaters) {
         uint64_t mac = it.first;
         Heater h = it.second;
 
@@ -1293,7 +1293,7 @@ void BaseStation::checkLostDevices()
         }
     }
 
-    for (auto it : lost_devices) {
+    for (const auto& it : lost_devices) {
         uint64_t mac = it.first;
         const std::string &name = it.second;
 
@@ -1524,7 +1524,7 @@ void BaseStation::sendBootMsg()
         default: msg << "UNKNOWN"; break;
         }
         msg << '\n';
-        for (auto it : m_heater_state) {
+        for (const auto& it : m_heater_state) {
             msg << "Heater " << it.first << " state: ";
             switch (it.second) {
             case HEATER_OFF: msg << "OFF"; break;

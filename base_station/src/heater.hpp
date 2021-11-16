@@ -1,8 +1,8 @@
 #ifndef HEATER_HPP
 #define HEATER_HPP
 
+#include <ctime>
 #include <string>
-#include <time.h>
 
 enum HeaterState {
     HEATER_OFF,
@@ -13,7 +13,7 @@ enum HeaterState {
 
 class Heater {
 public:
-    Heater(const std::string &name = std::string(), const std::string &ip_addr = std::string());
+    explicit Heater(const std::string &name = std::string(), const std::string &ip_addr = std::string());
 
     void update(HeaterState newState);
 

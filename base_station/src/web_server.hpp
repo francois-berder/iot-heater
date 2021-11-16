@@ -6,7 +6,7 @@
 
 class WebServer {
 public:
-    WebServer(BaseStation *b);
+    explicit WebServer(BaseStation *b);
     ~WebServer();
 
     void start();

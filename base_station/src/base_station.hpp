@@ -4,6 +4,7 @@
 #include "heater.hpp"
 #include "timer.hpp"
 #include <cstdint>
+#include <ctime>
 #include <deque>
 #include <list>
 #include <map>
@@ -12,7 +13,6 @@
 #include <queue>
 #include <set>
 #include <string>
-#include <time.h>
 
 struct DeviceConnection {
     int fd;
