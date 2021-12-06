@@ -59,7 +59,7 @@ void SMSSender::sendSMS(const std::string &to, const std::string &content)
     file << content << '\n';
     file.close();
 
-    /* Move it smstool outgoind dir */
+    /* Move it to smstool outgoing dir */
     std::stringstream path;
     path << SMS_OUTGOING_DIR << filename.str();
     if (rename(tmp_path.str().c_str(), path.str().c_str()) < 0)
