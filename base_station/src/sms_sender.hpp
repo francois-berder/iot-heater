@@ -22,6 +22,8 @@ private:
     SMSSender();
     ~SMSSender() = default;
 
+    void cleanOutgoingDir();
+
     std::mutex m_mutex;
     uint64_t m_counter;
 };

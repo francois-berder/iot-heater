@@ -1,6 +1,7 @@
 #include "logger.hpp"
 #include "sms_sender.hpp"
 #include <cstdint>
+#include <dirent.h>
 #include <fstream>
 #include <mutex>
 #include <sstream>
@@ -15,13 +16,44 @@ SMSSender::SMSSender():
 m_mutex(),
 m_counter(0)
 {
-
+    cleanOutgoingDir();
 }
 
 SMSSender& SMSSender::instance()
 {
     static SMSSender s;
     return s;
+}
+
+void SMSSender::cleanOutgoingDir() {
+    DIR *outgoing_dir;
+    struct dirent *next_file;
+    outgoing_dir = opendir(SMS_OUTGOING_DIR);
+    if (outgoing_dir == NULL) {
+        Logger::err("Failed to open directory " SMS_OUTGOING_DIR);
+        return;
+    }
+
+    while ((next_file = readdir(outgoing_dir)) != NULL)
+    {
+        if (next_file->d_type != DT_REG)
+            continue;
+
+        {
+            std::stringstream ss;
+            ss << "Removing old SMS " << next_file->d_name;
+            Logger::info(ss.str());
+        }
+        std::string filepath = SMS_OUTGOING_DIR "/";
+        filepath += next_file->d_name;
+        if (remove(filepath.c_str()) != 0) {
+            std::stringstream ss;
+            ss << "Failed to delete old SMS ";
+            ss << next_file->d_name;
+            Logger:err(ss.str());
+        }
+    }
+    closedir(outgoing_dir);
 }
 
 void SMSSender::sendSMS(const std::string &to, const std::string &content)
