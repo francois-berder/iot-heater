@@ -133,7 +133,7 @@ sed -i 's/#PasswordAuthentication yes/PasswordAuthentication no/g' /etc/ssh/sshd
 # Upgrade packages and install dependencies
 apt update
 apt -y upgrade
-apt -y install unattended-upgrades smstools git build-essential i2c-tools python-rpi.gpio python-dev python-serial python-smbus python-jinja2 python-xmltodict python-psutil python-pip dnsutils libmicrohttpd-dev
+apt -y install unattended-upgrades smstools git build-essential dnsutils libmicrohttpd-dev
 
 # Disable HDMI
 if ! cat /etc/rc.local | grep -q "tvservice -o"; then
