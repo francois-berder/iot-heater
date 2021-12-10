@@ -9,13 +9,22 @@
 
 namespace {
 
-int answerConnection(void *cls, struct MHD_Connection *connection,
+#if MHD_VERSION >= 0x00097002
+MHD_Result
+#else
+int
+#endif
+answerConnection(void *cls, struct MHD_Connection *connection,
                                 const char *url, const char *method,
                                 const char *version, const char *upload_data,
                                 size_t *upload_data_size, void **con_cls)
 {
     struct MHD_Response *response;
+#if MHD_VERSION >= 0x00097002
+    MHD_Result ret;
+#else
     int ret;
+#endif
     BaseStation *b = reinterpret_cast<BaseStation*>(cls);
     (void) url;               /* Unused. Silent compiler warning. */
     (void) method;            /* Unused. Silent compiler warning. */
