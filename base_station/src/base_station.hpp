@@ -43,6 +43,7 @@ private:
     void check3G();
     void checkSMSDaemon();
     void sendBootMsg();
+    void cleanupSMS();
 
     bool loadState();
     void saveState();
@@ -79,6 +80,8 @@ private:
     unsigned int m_daemon_error_counter;
 
     Timer m_send_boot_msg;
+
+    Timer m_cleanup_sms_timer;
 };
 
 #endif

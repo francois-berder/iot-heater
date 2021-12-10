@@ -46,6 +46,7 @@
 #define CHECK_DAEMON_PERIOD         (5 * 60 * 1000)     /* in milliseconds */
 #define DAEMON_ERROR_THRESHOLD      (6)
 #define SEND_BOOT_MSG_PERIOD        (30 * 1000)
+#define CLEANUP_SMS_PERIOD          (60 * 60 * 1000)   /* in milliseconds */
 
 struct __attribute__((packed)) message_header_t {
     uint8_t version;
@@ -392,6 +393,9 @@ m_send_boot_msg()
     /* Start send boot msg timer */
     m_send_boot_msg.start(SEND_BOOT_MSG_PERIOD, false);
 
+    /* Start cleanup SMS timer */
+    m_cleanup_sms_timer.start(CLEANUP_SMS_PERIOD, true);
+
     /* Initialize message counter */
     srand(time(NULL));
     m_message_counter = rand();
@@ -415,6 +419,7 @@ void BaseStation::process()
     check3G();
     checkSMSDaemon();
     sendBootMsg();
+    cleanupSMS();
 }
 
 /*
@@ -1538,6 +1543,24 @@ void BaseStation::sendBootMsg()
         }
         SMSSender::instance().sendSMS(m_emergency_phone, msg.str());
     }
+}
+
+void BaseStation::cleanupSMS()
+{
+    struct pollfd fds[1];
+
+    fds[0].fd = m_cleanup_sms_timer.getFD();
+    fds[0].events = POLLIN;
+
+    int ret = poll(fds, sizeof(fds)/sizeof(fds[0]), 0);
+    if (ret <= 0)
+        return;
+
+    /* Dummy read with timer fd to clear event */
+    uint64_t _;
+    read(fds[0].fd, &_, sizeof(_));
+
+    SMSSender::instance().cleanupSMS();
 }
 
 bool BaseStation::loadState()
