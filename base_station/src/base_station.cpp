@@ -16,6 +16,7 @@
 #include <mutex>
 #include <net/if.h>
 #include <poll.h>
+#include <random>
 #include <sstream>
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
@@ -397,8 +398,10 @@ m_send_boot_msg()
     m_cleanup_sms_timer.start(CLEANUP_SMS_PERIOD, true);
 
     /* Initialize message counter */
-    srand(time(NULL));
-    m_message_counter = rand();
+    std::random_device rd;
+    std::mt19937 mt(rd());
+    std::uniform_int_distribution<uint32_t> dist(0,UINT32_MAX);
+    m_message_counter = dist(mt);
     m_message_counter <<= 32;
 }
 
