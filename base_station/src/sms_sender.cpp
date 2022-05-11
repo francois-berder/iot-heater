@@ -57,7 +57,7 @@ void SMSSender::cleanOutgoingDir() {
     closedir(outgoing_dir);
 }
 
-void SMSSender::sendSMS(const std::string &to, const std::string &content)
+bool SMSSender::sendSMS(const std::string &to, const std::string &content)
 {
     std::lock_guard<std::mutex> guard(m_mutex);
 
@@ -72,7 +72,7 @@ void SMSSender::sendSMS(const std::string &to, const std::string &content)
         ss << "3G module not detected (no ";
         ss << MODULE_3G_DEVPATH << " found). Discarding text message.";
         Logger::err(ss.str());
-        return;
+        return false;
     }
 
     std::ofstream file;
@@ -95,11 +95,15 @@ void SMSSender::sendSMS(const std::string &to, const std::string &content)
     /* Move it to smstool outgoing dir */
     std::stringstream path;
     path << SMS_OUTGOING_DIR << filename.str();
-    if (rename(tmp_path.str().c_str(), path.str().c_str()) < 0)
+    if (rename(tmp_path.str().c_str(), path.str().c_str()) < 0) {
         Logger::err("Failed to send SMS\n");
+        return false;
+    }
 
     /* Keep track of this file to delete it later */
     m_old_files[filename.str()] = std::chrono::steady_clock::now();
+
+    return true;
 }
 
 void SMSSender::cleanupSMS()

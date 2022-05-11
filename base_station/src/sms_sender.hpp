@@ -17,7 +17,15 @@ public:
 
     static SMSSender& instance();
 
-    void sendSMS(const std::string& to, const std::string &content);
+    /**
+     * @brief Send SMS
+     *
+     * @param to phone number
+     * @param content
+     * @return true SMS sent successfully
+     * @return false SMS not sent
+     */
+    bool sendSMS(const std::string& to, const std::string &content);
 
     /**
      * @brief Clean old SMS to avoid having too many files
