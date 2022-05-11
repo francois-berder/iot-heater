@@ -1,7 +1,5 @@
 # Connected heater
 
-**This is an ongoing project, do not expect everything to work !**
-
 The architecture of this solution is as follows: a base station is running and parses incoming SMS. Each heater controller connects to the base station regularly and requests the current heater state.
 
 ## Base station
