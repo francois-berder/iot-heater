@@ -21,7 +21,10 @@
 #include <sys/ioctl.h>
 #include <sys/reboot.h>
 #include <sys/socket.h>
+#if defined(__linux__) || defined (__unix__)
 #include <sys/sysinfo.h>
+#endif
+#include <sys/types.h>
 #include <sys/utsname.h>
 #include <termios.h>
 #include <unistd.h>
@@ -111,6 +114,7 @@ std::stringstream& macToStr(std::stringstream &ss, uint8_t mac[6])
 
 std::string get_uptime_str()
 {
+#if defined(__linux__) || defined (__unix__)
     struct sysinfo s_info;
     int ret = sysinfo(&s_info);
     if (ret)
@@ -131,6 +135,9 @@ std::string get_uptime_str()
         ss << days << " days ";
     ss << hours << "h " << minutes << "m " << secs << "s";
     return ss.str();
+#else
+    return "feature not supported";
+#endif
 }
 
 std::string get_machineinfo_str()
@@ -342,6 +349,48 @@ bool is_process_running(const std::string &name)
     return false;
 }
 
+#if defined(__linux__) || defined (__unix__)
+bool get_mac_address(uint8_t* mac_addr, const char* if_name)
+{
+    struct ifreq ifinfo;
+    strcpy(ifinfo.ifr_name, if_name);
+    int sd = socket(AF_INET, SOCK_DGRAM, 0);
+    int result = ioctl(sd, SIOCGIFHWADDR, &ifinfo);
+    close(sd);
+
+    if ((result == 0) && (ifinfo.ifr_hwaddr.sa_family == 1)) {
+        for (int i = 0; i < 6; ++i)
+            mac_addr[i] = s.ifr_addr.sa_data[i];
+        return true;
+    }
+    else {
+        return false;
+    }
+}
+#else
+#include <ifaddrs.h>
+#include <net/if_dl.h>
+bool get_mac_address(uint8_t* mac_addr, const char* if_name)
+{
+    ifaddrs* iflist;
+    bool found = false;
+    if (getifaddrs(&iflist) == 0) {
+        for (ifaddrs* cur = iflist; cur; cur = cur->ifa_next) {
+            if ((cur->ifa_addr->sa_family == AF_LINK) &&
+                    (strcmp(cur->ifa_name, if_name) == 0) &&
+                    cur->ifa_addr) {
+                sockaddr_dl* sdl = (sockaddr_dl*)cur->ifa_addr;
+                memcpy(mac_addr, LLADDR(sdl), sdl->sdl_alen);
+                found = true;
+                break;
+            }
+        }
+
+        freeifaddrs(iflist);
+    }
+    return found;
+}
+#endif
 }
 
 enum MessageType {
@@ -1177,24 +1226,9 @@ void BaseStation::sendHeaterState(int fd, HeaterState state)
     message_header_t header;
     header.version = 1;
     header.type = MessageType::HEATER_STATE_REPLY;
-    {
-        struct ifreq s;
-        int fd = socket(PF_INET, SOCK_DGRAM, 0);
-        if (fd < 0) {
-            Logger::warn("Unable to get MAC address of network interface " NETWORK_INTERFACE_NAME);
-            memset(header.mac_addr, 0, sizeof(header.mac_addr));
-        } else {
-            strcpy(s.ifr_name, NETWORK_INTERFACE_NAME);
-            if (0 == ioctl(fd, SIOCGIFHWADDR, &s)) {
-                for (int i = 0; i < 6; ++i)
-                    header.mac_addr[i] = s.ifr_addr.sa_data[i];
-            } else {
-                Logger::warn("Unable to get MAC address of network interface " NETWORK_INTERFACE_NAME);
-                memset(header.mac_addr, 0, sizeof(header.mac_addr));
-            }
-            close(fd);
-        }
-    }
+
+    if (!get_mac_address(header.mac_addr, NETWORK_INTERFACE_NAME))
+        memset(header.mac_addr, 0, sizeof(header.mac_addr));
     header.counter = m_message_counter++;
 
     uint8_t data[MESSAGE_SIZE];
